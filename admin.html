@@ -22,7 +22,11 @@
 
     <section id="adminLoginCard" class="admin-card">
       <h2>进入后台</h2>
-      <p class="hint">默认管理密码：genius-admin。当前是静态站演示后台，正式版需要数据库和后端鉴权。</p>
+      <p id="adminModeHint" class="hint">如果已配置 Supabase，请使用管理员邮箱和密码登录。未配置时仍可用本地演示密码 genius-admin。</p>
+      <label id="adminEmailLabel">
+        管理员邮箱
+        <input id="adminLoginEmail" type="email" placeholder="你的 Supabase 管理员邮箱" />
+      </label>
       <label>
         管理密码
         <input id="adminLoginPassword" type="password" placeholder="输入管理密码" />
@@ -111,7 +115,10 @@
   </main>
 
   <div id="toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase-config.js"></script>
   <script src="./site-data.js"></script>
+  <script src="./gc-api.js"></script>
   <script src="./admin.js"></script>
 </body>
 </html>

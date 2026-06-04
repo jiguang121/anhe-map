@@ -1,9 +1,9 @@
-const GC_STORAGE_KEY = 'gc_v2_site_data';
 const GC_MEMBER_KEY = 'gc_member';
 const GC_NICKNAME_KEY = 'gc_nickname';
 const GC_VIEW_COUNT_KEY = 'gc_view_count';
 
 const state = {
+  data: null,
   currentCategory: 'privacy',
   currentPostId: null,
   isMember: localStorage.getItem(GC_MEMBER_KEY) === '1',
@@ -15,43 +15,8 @@ function $(id) {
   return document.getElementById(id);
 }
 
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function createDefaultData() {
-  const data = clone(window.GC_DEFAULT_DATA);
-  const now = Date.now();
-  data.posts = data.posts.map(post => ({
-    ...post,
-    createdAt: post.createdAt || now - Number(post.createdAtOffsetMinutes || 0) * 60 * 1000,
-    comments: Array.isArray(post.comments) ? post.comments : []
-  }));
-  return data;
-}
-
 function getData() {
-  const raw = localStorage.getItem(GC_STORAGE_KEY);
-  if (!raw) {
-    const data = createDefaultData();
-    saveData(data);
-    return data;
-  }
-  try {
-    const data = JSON.parse(raw);
-    if (!data.site || !Array.isArray(data.categories) || !Array.isArray(data.posts)) {
-      throw new Error('Invalid data shape');
-    }
-    return data;
-  } catch {
-    const data = createDefaultData();
-    saveData(data);
-    return data;
-  }
-}
-
-function saveData(data) {
-  localStorage.setItem(GC_STORAGE_KEY, JSON.stringify(data));
+  return state.data || gcCreateDefaultData();
 }
 
 function getCategoryById(data, id) {
@@ -103,6 +68,13 @@ function escapeHtml(text) {
     .replaceAll("'", '&#039;');
 }
 
+async function refreshData() {
+  state.data = await gcLoadData();
+  if (!state.data.categories.some(category => category.id === state.currentCategory)) {
+    state.currentCategory = state.data.categories[0]?.id || 'privacy';
+  }
+}
+
 function renderHome() {
   const data = getData();
   $('homeEyebrow').textContent = data.site.eyebrow;
@@ -122,10 +94,6 @@ function renderHome() {
       <small>${escapeHtml(category.tagline)}</small>
     </button>
   `).join('');
-
-  if (!data.categories.some(category => category.id === state.currentCategory)) {
-    state.currentCategory = data.categories[0]?.id || 'privacy';
-  }
 }
 
 function updateStatus() {
@@ -207,19 +175,6 @@ function renderComments(post) {
     : '<div class="comment-item">还没有评论，做第一个说话的人。</div>';
 }
 
-function addPost({ category, title, content }) {
-  const data = getData();
-  data.posts.unshift({
-    id: `post_${Date.now()}`,
-    category,
-    title,
-    content,
-    createdAt: Date.now(),
-    comments: []
-  });
-  saveData(data);
-}
-
 function bindEvents() {
   $('orbStage').addEventListener('click', event => {
     const orb = event.target.closest('.orb');
@@ -247,30 +202,39 @@ function bindEvents() {
     });
   });
 
-  $('submitPost').addEventListener('click', () => {
+  $('submitPost').addEventListener('click', async () => {
     const title = $('postTitle').value.trim();
     const content = $('postContent').value.trim();
     if (!title || !content) return showToast('标题和内容都要写');
-    addPost({ category: state.currentCategory, title, content });
-    $('postTitle').value = '';
-    $('postContent').value = '';
-    closeModal('postModal');
-    renderPosts();
-    showToast('已匿名发布');
+    try {
+      await gcCreatePost({ category: state.currentCategory, title, content });
+      $('postTitle').value = '';
+      $('postContent').value = '';
+      closeModal('postModal');
+      await refreshData();
+      renderHome();
+      renderPosts();
+      showToast(gcIsCloudMode() ? '已发布到云端' : '已匿名发布到本机');
+    } catch (error) {
+      console.error(error);
+      showToast('发布失败，请稍后重试');
+    }
   });
 
-  $('submitComment').addEventListener('click', () => {
+  $('submitComment').addEventListener('click', async () => {
     const value = $('commentInput').value.trim();
     if (!value) return showToast('先写一句评论');
-    const data = getData();
-    const post = data.posts.find(item => item.id === state.currentPostId);
-    if (!post) return;
-    post.comments = post.comments || [];
-    post.comments.push(value);
-    saveData(data);
-    $('commentInput').value = '';
-    renderComments(post);
-    renderPosts();
+    try {
+      await gcAddComment(state.currentPostId, value);
+      $('commentInput').value = '';
+      await refreshData();
+      const post = getData().posts.find(item => item.id === state.currentPostId);
+      if (post) renderComments(post);
+      renderPosts();
+    } catch (error) {
+      console.error(error);
+      showToast('评论失败，请稍后重试');
+    }
   });
 
   $('submitLogin').addEventListener('click', () => {
@@ -295,6 +259,12 @@ function bindEvents() {
   });
 }
 
-renderHome();
-bindEvents();
-updateStatus();
+async function init() {
+  $('postList').innerHTML = '<div class="empty-card">内容加载中……</div>';
+  await refreshData();
+  renderHome();
+  bindEvents();
+  updateStatus();
+}
+
+init();

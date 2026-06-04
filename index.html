@@ -12,29 +12,16 @@
   <main class="app-shell">
     <section id="home" class="screen active-screen">
       <div class="hero-copy">
-        <p class="eyebrow">GENIUS CLUB · 匿名内场</p>
-        <h1>天才俱乐部</h1>
-        <p class="subtitle">把不适合公开说的话，放进一个会漂浮的秘密房间。</p>
+        <p id="homeEyebrow" class="eyebrow">GENIUS CLUB · 匿名内场</p>
+        <h1 id="homeTitle">天才俱乐部</h1>
+        <p id="homeSubtitle" class="subtitle">把不适合公开说的话，放进一个会漂浮的秘密房间。</p>
       </div>
 
-      <div class="orb-stage" aria-label="天才俱乐部入口">
-        <button class="orb orb-privacy" data-category="privacy">
-          <span>隐私</span>
-          <small>不能说的边界</small>
-        </button>
-        <button class="orb orb-mind" data-category="mind">
-          <span>心事</span>
-          <small>没人接住的念头</small>
-        </button>
-        <button class="orb orb-leak" data-category="leak">
-          <span>爆料</span>
-          <small>风声从这里开始</small>
-        </button>
-      </div>
+      <div id="orbStage" class="orb-stage" aria-label="天才俱乐部入口"></div>
 
       <div class="home-actions">
         <button id="loginBtn" class="ghost-btn">登录 / 会员入口</button>
-        <button id="adminBtn" class="ghost-btn">后台管理</button>
+        <a class="ghost-btn link-btn" href="./admin.html">后台管理</a>
       </div>
     </section>
 
@@ -42,7 +29,7 @@
       <header class="topbar">
         <button id="backBtn" class="icon-btn" aria-label="返回首页">←</button>
         <div>
-          <p class="eyebrow">GENIUS CLUB</p>
+          <p id="feedEyebrow" class="eyebrow">GENIUS CLUB</p>
           <h2 id="categoryTitle">隐私</h2>
         </div>
         <button id="shareBtn" class="primary-btn">匿名分享</button>
@@ -95,8 +82,8 @@
     <div class="modal-panel pay-panel">
       <button class="close-btn" data-close="payModal">×</button>
       <p class="eyebrow">会员墙</p>
-      <h3>你已经看完 5 条免费内容</h3>
-      <p>继续查看完整秘密，需要登录会员。当前版本是演示入口，后续可以接微信登录、手机号登录或真实支付。</p>
+      <h3 id="payTitle">你已经看完 5 条免费内容</h3>
+      <p id="payText">继续查看完整秘密，需要登录会员。</p>
       <button id="mockPayBtn" class="primary-btn full">模拟开通会员</button>
     </div>
   </div>
@@ -105,8 +92,8 @@
     <div class="modal-panel">
       <button class="close-btn" data-close="loginModal">×</button>
       <p class="eyebrow">登录入口</p>
-      <h3>演示登录</h3>
-      <p class="hint">输入任意昵称即可成为“会员”。这是前端演示，不是真实账号系统。</p>
+      <h3 id="loginTitle">演示登录</h3>
+      <p id="loginText" class="hint">输入任意昵称即可成为“会员”。这是前端演示，不是真实账号系统。</p>
       <label>
         昵称
         <input id="nicknameInput" maxlength="16" placeholder="例如：匿名天才" />
@@ -115,37 +102,8 @@
     </div>
   </div>
 
-  <div id="adminModal" class="modal" aria-hidden="true">
-    <div class="modal-panel admin-panel">
-      <button class="close-btn" data-close="adminModal">×</button>
-      <p class="eyebrow">后台管理 · 本地演示</p>
-      <h3>手动增加分享内容</h3>
-      <p class="hint">管理密码：genius-admin。正式版本不能这样写，需要后端鉴权。</p>
-      <label>
-        管理密码
-        <input id="adminPassword" type="password" placeholder="输入 genius-admin" />
-      </label>
-      <label>
-        分类
-        <select id="adminCategory">
-          <option value="privacy">隐私</option>
-          <option value="mind">心事</option>
-          <option value="leak">爆料</option>
-        </select>
-      </label>
-      <label>
-        标题
-        <input id="adminTitle" maxlength="30" placeholder="后台添加的标题" />
-      </label>
-      <label>
-        内容
-        <textarea id="adminContent" maxlength="800" placeholder="后台手动写入的分享内容"></textarea>
-      </label>
-      <button id="submitAdminPost" class="primary-btn full">添加内容</button>
-    </div>
-  </div>
-
   <div id="toast" class="toast"></div>
+  <script src="./site-data.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

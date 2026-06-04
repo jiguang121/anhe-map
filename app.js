@@ -1,88 +1,65 @@
-const categoryMap = {
-  privacy: '隐私',
-  mind: '心事',
-  leak: '爆料'
-};
-
-const seedPosts = [
-  {
-    id: crypto.randomUUID(),
-    category: 'privacy',
-    title: '我把最真实的一面藏得很好',
-    content: '白天我像一个很正常的人，回消息、做事、开玩笑。可是只有我自己知道，我真正害怕的是被别人看见那个不够体面的自己。',
-    createdAt: Date.now() - 1000 * 60 * 38,
-    comments: ['有时候越正常的人，越需要一个出口。', '这里至少可以不用装。']
-  },
-  {
-    id: crypto.randomUUID(),
-    category: 'privacy',
-    title: '有些关系，我已经在心里退场了',
-    content: '我没有拉黑，也没有吵架，只是突然发现，我已经不期待那个人理解我了。关系还在，但我已经不在里面了。',
-    createdAt: Date.now() - 1000 * 60 * 88,
-    comments: ['懂，这种退场是安静的。']
-  },
-  {
-    id: crypto.randomUUID(),
-    category: 'mind',
-    title: '我总觉得自己不该只过这种人生',
-    content: '不是现在的生活完全不好，而是我心里一直有个声音：我不应该只是这样上班、吃饭、睡觉、等时间过去。我想要一点更大的东西。',
-    createdAt: Date.now() - 1000 * 60 * 120,
-    comments: ['这种不甘心，可能就是入口。', '我也经常有这个感觉。']
-  },
-  {
-    id: crypto.randomUUID(),
-    category: 'mind',
-    title: '成年人最难的是没有人接住你',
-    content: '小时候难过可以哭，长大后难过还要回消息。很多时候不是事情多严重，而是身边没有一个可以完全说真话的人。',
-    createdAt: Date.now() - 1000 * 60 * 200,
-    comments: ['太准了。', '匿名反而更像真实。']
-  },
-  {
-    id: crypto.randomUUID(),
-    category: 'leak',
-    title: '有人表面光鲜，其实早就欠了一圈钱',
-    content: '朋友圈里越是展示精致生活的人，不一定真的过得好。有些人的体面全靠借来的现金流撑着，只是没人把账本摊开看。',
-    createdAt: Date.now() - 1000 * 60 * 260,
-    comments: ['很多人是在演稳定。', '账本比朋友圈诚实。']
-  },
-  {
-    id: crypto.randomUUID(),
-    category: 'leak',
-    title: '公司最会画饼的人，往往最懂人性',
-    content: '很多承诺不是为了兑现，而是为了让你暂时继续卖力。等你发现的时候，饼已经换了一张新的。',
-    createdAt: Date.now() - 1000 * 60 * 330,
-    comments: ['这句可以贴工位上。']
-  }
-];
+const GC_STORAGE_KEY = 'gc_v2_site_data';
+const GC_MEMBER_KEY = 'gc_member';
+const GC_NICKNAME_KEY = 'gc_nickname';
+const GC_VIEW_COUNT_KEY = 'gc_view_count';
 
 const state = {
   currentCategory: 'privacy',
   currentPostId: null,
-  isMember: localStorage.getItem('gc_member') === '1',
-  nickname: localStorage.getItem('gc_nickname') || '',
-  viewCount: Number(localStorage.getItem('gc_view_count') || 0)
+  isMember: localStorage.getItem(GC_MEMBER_KEY) === '1',
+  nickname: localStorage.getItem(GC_NICKNAME_KEY) || '',
+  viewCount: Number(localStorage.getItem(GC_VIEW_COUNT_KEY) || 0)
 };
-
-function getPosts() {
-  const raw = localStorage.getItem('gc_posts');
-  if (!raw) {
-    localStorage.setItem('gc_posts', JSON.stringify(seedPosts));
-    return seedPosts;
-  }
-  try {
-    return JSON.parse(raw);
-  } catch {
-    localStorage.setItem('gc_posts', JSON.stringify(seedPosts));
-    return seedPosts;
-  }
-}
-
-function savePosts(posts) {
-  localStorage.setItem('gc_posts', JSON.stringify(posts));
-}
 
 function $(id) {
   return document.getElementById(id);
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function createDefaultData() {
+  const data = clone(window.GC_DEFAULT_DATA);
+  const now = Date.now();
+  data.posts = data.posts.map(post => ({
+    ...post,
+    createdAt: post.createdAt || now - Number(post.createdAtOffsetMinutes || 0) * 60 * 1000,
+    comments: Array.isArray(post.comments) ? post.comments : []
+  }));
+  return data;
+}
+
+function getData() {
+  const raw = localStorage.getItem(GC_STORAGE_KEY);
+  if (!raw) {
+    const data = createDefaultData();
+    saveData(data);
+    return data;
+  }
+  try {
+    const data = JSON.parse(raw);
+    if (!data.site || !Array.isArray(data.categories) || !Array.isArray(data.posts)) {
+      throw new Error('Invalid data shape');
+    }
+    return data;
+  } catch {
+    const data = createDefaultData();
+    saveData(data);
+    return data;
+  }
+}
+
+function saveData(data) {
+  localStorage.setItem(GC_STORAGE_KEY, JSON.stringify(data));
+}
+
+function getCategoryById(data, id) {
+  return data.categories.find(category => category.id === id) || data.categories[0];
+}
+
+function categoryName(data, id) {
+  return getCategoryById(data, id)?.name || id;
 }
 
 function showToast(message) {
@@ -110,24 +87,70 @@ function switchScreen(screenId) {
 }
 
 function formatTime(timestamp) {
-  const diff = Math.floor((Date.now() - timestamp) / 60000);
+  const diff = Math.floor((Date.now() - Number(timestamp || Date.now())) / 60000);
   if (diff < 1) return '刚刚';
   if (diff < 60) return `${diff} 分钟前`;
   if (diff < 1440) return `${Math.floor(diff / 60)} 小时前`;
   return `${Math.floor(diff / 1440)} 天前`;
 }
 
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function renderHome() {
+  const data = getData();
+  $('homeEyebrow').textContent = data.site.eyebrow;
+  $('homeTitle').textContent = data.site.title;
+  $('homeSubtitle').textContent = data.site.subtitle;
+  $('shareBtn').textContent = data.site.shareButtonText || '匿名分享';
+  $('feedEyebrow').textContent = data.site.feedEyebrow || 'GENIUS CLUB';
+  $('payTitle').textContent = data.site.payTitle || '你已经看完免费内容';
+  $('payText').textContent = data.site.payText || '继续查看完整秘密，需要登录会员。';
+  $('mockPayBtn').textContent = data.site.payButtonText || '模拟开通会员';
+  $('loginTitle').textContent = data.site.loginTitle || '演示登录';
+  $('loginText').textContent = data.site.loginText || '输入任意昵称即可成为会员。';
+
+  $('orbStage').innerHTML = data.categories.map(category => `
+    <button class="orb ${escapeHtml(category.orbClass || '')}" data-category="${escapeHtml(category.id)}">
+      <span>${escapeHtml(category.name)}</span>
+      <small>${escapeHtml(category.tagline)}</small>
+    </button>
+  `).join('');
+
+  if (!data.categories.some(category => category.id === state.currentCategory)) {
+    state.currentCategory = data.categories[0]?.id || 'privacy';
+  }
+}
+
 function updateStatus() {
-  $('memberStatus').textContent = state.isMember ? `会员模式 · ${state.nickname || '匿名天才'}` : '游客模式';
-  $('viewCount').textContent = state.isMember ? '会员可查看全部内容' : `今日已浏览 ${state.viewCount} / 5`;
+  const data = getData();
+  const limit = Number(data.site.viewLimit || 5);
+  $('memberStatus').textContent = state.isMember
+    ? `${data.site.memberLabel || '会员模式'} · ${state.nickname || '匿名天才'}`
+    : data.site.visitorLabel || '游客模式';
+  $('viewCount').textContent = state.isMember
+    ? '会员可查看全部内容'
+    : `今日已浏览 ${state.viewCount} / ${limit}`;
 }
 
 function renderPosts() {
+  const data = getData();
   updateStatus();
-  $('categoryTitle').textContent = categoryMap[state.currentCategory];
-  const posts = getPosts()
+  $('categoryTitle').textContent = categoryName(data, state.currentCategory);
+  const posts = data.posts
     .filter(post => post.category === state.currentCategory)
-    .sort((a, b) => b.createdAt - a.createdAt);
+    .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+
+  if (!posts.length) {
+    $('postList').innerHTML = '<div class="empty-card">这个分类还没有内容。你可以先匿名发布一条，或者到后台添加。</div>';
+    return;
+  }
 
   $('postList').innerHTML = posts.map(post => {
     const preview = post.content.length > 72 ? `${post.content.slice(0, 72)}……` : post.content;
@@ -140,8 +163,8 @@ function renderPosts() {
         <h3>${escapeHtml(post.title)}</h3>
         <p>${escapeHtml(preview)}</p>
         <div class="card-actions">
-          <span>${post.comments?.length || 0} 条评论 · ${categoryMap[post.category]}</span>
-          <button class="read-btn" data-post-id="${post.id}">查看完整内容</button>
+          <span>${post.comments?.length || 0} 条评论 · ${escapeHtml(categoryName(data, post.category))}</span>
+          <button class="read-btn" data-post-id="${escapeHtml(post.id)}">查看完整内容</button>
         </div>
       </article>
     `;
@@ -153,22 +176,23 @@ function renderPosts() {
 }
 
 function openPost(postId) {
-  if (!state.isMember && state.viewCount >= 5) {
+  const data = getData();
+  const limit = Number(data.site.viewLimit || 5);
+  if (!state.isMember && state.viewCount >= limit) {
     openModal('payModal');
     return;
   }
 
-  const posts = getPosts();
-  const post = posts.find(item => item.id === postId);
+  const post = data.posts.find(item => item.id === postId);
   if (!post) return;
 
   if (!state.isMember) {
     state.viewCount += 1;
-    localStorage.setItem('gc_view_count', String(state.viewCount));
+    localStorage.setItem(GC_VIEW_COUNT_KEY, String(state.viewCount));
   }
 
   state.currentPostId = postId;
-  $('detailMeta').textContent = `匿名成员 · ${formatTime(post.createdAt)} · ${categoryMap[post.category]}`;
+  $('detailMeta').textContent = `匿名成员 · ${formatTime(post.createdAt)} · ${categoryName(data, post.category)}`;
   $('detailTitle').textContent = post.title;
   $('detailContent').textContent = post.content;
   renderComments(post);
@@ -184,43 +208,34 @@ function renderComments(post) {
 }
 
 function addPost({ category, title, content }) {
-  const posts = getPosts();
-  posts.unshift({
-    id: crypto.randomUUID(),
+  const data = getData();
+  data.posts.unshift({
+    id: `post_${Date.now()}`,
     category,
     title,
     content,
     createdAt: Date.now(),
     comments: []
   });
-  savePosts(posts);
-}
-
-function escapeHtml(text) {
-  return String(text)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+  saveData(data);
 }
 
 function bindEvents() {
-  document.querySelectorAll('.orb').forEach(orb => {
-    orb.addEventListener('click', () => {
-      state.currentCategory = orb.dataset.category;
-      switchScreen('feed');
-      renderPosts();
-    });
+  $('orbStage').addEventListener('click', event => {
+    const orb = event.target.closest('.orb');
+    if (!orb) return;
+    state.currentCategory = orb.dataset.category;
+    switchScreen('feed');
+    renderPosts();
   });
 
   $('backBtn').addEventListener('click', () => switchScreen('home'));
   $('shareBtn').addEventListener('click', () => {
-    $('postModalTitle').textContent = `分享到「${categoryMap[state.currentCategory]}」`;
+    const data = getData();
+    $('postModalTitle').textContent = `分享到「${categoryName(data, state.currentCategory)}」`;
     openModal('postModal');
   });
   $('loginBtn').addEventListener('click', () => openModal('loginModal'));
-  $('adminBtn').addEventListener('click', () => openModal('adminModal'));
 
   document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => closeModal(btn.dataset.close));
@@ -247,12 +262,12 @@ function bindEvents() {
   $('submitComment').addEventListener('click', () => {
     const value = $('commentInput').value.trim();
     if (!value) return showToast('先写一句评论');
-    const posts = getPosts();
-    const post = posts.find(item => item.id === state.currentPostId);
+    const data = getData();
+    const post = data.posts.find(item => item.id === state.currentPostId);
     if (!post) return;
     post.comments = post.comments || [];
     post.comments.push(value);
-    savePosts(posts);
+    saveData(data);
     $('commentInput').value = '';
     renderComments(post);
     renderPosts();
@@ -262,8 +277,8 @@ function bindEvents() {
     const nickname = $('nicknameInput').value.trim() || '匿名天才';
     state.isMember = true;
     state.nickname = nickname;
-    localStorage.setItem('gc_member', '1');
-    localStorage.setItem('gc_nickname', nickname);
+    localStorage.setItem(GC_MEMBER_KEY, '1');
+    localStorage.setItem(GC_NICKNAME_KEY, nickname);
     closeModal('loginModal');
     updateStatus();
     showToast('已进入会员模式');
@@ -272,28 +287,14 @@ function bindEvents() {
   $('mockPayBtn').addEventListener('click', () => {
     state.isMember = true;
     state.nickname = state.nickname || '匿名天才';
-    localStorage.setItem('gc_member', '1');
-    localStorage.setItem('gc_nickname', state.nickname);
+    localStorage.setItem(GC_MEMBER_KEY, '1');
+    localStorage.setItem(GC_NICKNAME_KEY, state.nickname);
     closeModal('payModal');
     updateStatus();
     showToast('演示会员已开通');
   });
-
-  $('submitAdminPost').addEventListener('click', () => {
-    const password = $('adminPassword').value.trim();
-    const category = $('adminCategory').value;
-    const title = $('adminTitle').value.trim();
-    const content = $('adminContent').value.trim();
-    if (password !== 'genius-admin') return showToast('管理密码不对');
-    if (!title || !content) return showToast('标题和内容都要写');
-    addPost({ category, title, content });
-    $('adminTitle').value = '';
-    $('adminContent').value = '';
-    closeModal('adminModal');
-    if (state.currentCategory === category) renderPosts();
-    showToast('后台内容已添加');
-  });
 }
 
+renderHome();
 bindEvents();
 updateStatus();

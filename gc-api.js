@@ -39,11 +39,15 @@ function gcLocalSaveData(data) {
   localStorage.setItem(GC_STORAGE_KEY, JSON.stringify(data));
 }
 
+function gcConfigKey() {
+  return window.GC_SUPABASE_CONFIG?.anonKey || window.GC_SUPABASE_CONFIG?.publishableKey || '';
+}
+
 function gcHasSupabaseConfig() {
   return Boolean(
     window.GC_SUPABASE_CONFIG &&
     window.GC_SUPABASE_CONFIG.url &&
-    window.GC_SUPABASE_CONFIG.anonKey &&
+    gcConfigKey() &&
     window.supabase
   );
 }
@@ -53,7 +57,19 @@ function gcSupabaseClient() {
   if (!window.__GC_SUPABASE_CLIENT__) {
     window.__GC_SUPABASE_CLIENT__ = window.supabase.createClient(
       window.GC_SUPABASE_CONFIG.url,
-      window.GC_SUPABASE_CONFIG.anonKey
+      gcConfigKey(),
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false
+        },
+        global: {
+          headers: {
+            apikey: gcConfigKey()
+          }
+        }
+      }
     );
   }
   return window.__GC_SUPABASE_CLIENT__;
@@ -63,48 +79,61 @@ function gcIsCloudMode() {
   return Boolean(gcSupabaseClient());
 }
 
+function gcExplainFetchError(error) {
+  const rawMessage = error?.message || String(error || 'Unknown error');
+  if (/failed to fetch|networkerror|load failed/i.test(rawMessage)) {
+    return '无法连接 Supabase。常见原因：网络/代理拦截、Supabase 在当前网络不可访问、浏览器插件拦截，或 API key 类型不兼容。建议先开全局代理刷新后台再试；如果仍失败，请改用 Legacy anon key。';
+  }
+  return rawMessage;
+}
+
 async function gcLoadData() {
   const client = gcSupabaseClient();
   if (!client) return gcLocalGetData();
 
-  const [settingsResult, categoriesResult, postsResult, commentsResult] = await Promise.all([
-    client.from('gc_settings').select('data').eq('id', 'site').single(),
-    client.from('gc_categories').select('id,name,tagline,orb_class,sort_order').order('sort_order', { ascending: true }),
-    client.from('gc_posts').select('id,category_id,title,content,created_at').eq('is_published', true).order('created_at', { ascending: false }),
-    client.from('gc_comments').select('id,post_id,content,created_at').eq('is_published', true).order('created_at', { ascending: true })
-  ]);
+  try {
+    const [settingsResult, categoriesResult, postsResult, commentsResult] = await Promise.all([
+      client.from('gc_settings').select('data').eq('id', 'site').single(),
+      client.from('gc_categories').select('id,name,tagline,orb_class,sort_order').order('sort_order', { ascending: true }),
+      client.from('gc_posts').select('id,category_id,title,content,created_at').eq('is_published', true).order('created_at', { ascending: false }),
+      client.from('gc_comments').select('id,post_id,content,created_at').eq('is_published', true).order('created_at', { ascending: true })
+    ]);
 
-  const hasError = settingsResult.error || categoriesResult.error || postsResult.error || commentsResult.error;
-  if (hasError) {
-    console.warn('Supabase load failed, fallback to local data:', hasError);
+    const hasError = settingsResult.error || categoriesResult.error || postsResult.error || commentsResult.error;
+    if (hasError) {
+      console.warn('Supabase load failed, fallback to local data:', hasError);
+      return gcLocalGetData();
+    }
+
+    const commentsByPost = new Map();
+    for (const comment of commentsResult.data || []) {
+      const list = commentsByPost.get(comment.post_id) || [];
+      list.push(comment.content);
+      commentsByPost.set(comment.post_id, list);
+    }
+
+    return {
+      version: 3,
+      site: settingsResult.data?.data || gcCreateDefaultData().site,
+      categories: (categoriesResult.data || []).map(category => ({
+        id: category.id,
+        name: category.name,
+        tagline: category.tagline,
+        orbClass: category.orb_class
+      })),
+      posts: (postsResult.data || []).map(post => ({
+        id: post.id,
+        category: post.category_id,
+        title: post.title,
+        content: post.content,
+        createdAt: new Date(post.created_at).getTime(),
+        comments: commentsByPost.get(post.id) || []
+      }))
+    };
+  } catch (error) {
+    console.warn('Supabase network failed, fallback to local data:', error);
     return gcLocalGetData();
   }
-
-  const commentsByPost = new Map();
-  for (const comment of commentsResult.data || []) {
-    const list = commentsByPost.get(comment.post_id) || [];
-    list.push(comment.content);
-    commentsByPost.set(comment.post_id, list);
-  }
-
-  return {
-    version: 3,
-    site: settingsResult.data?.data || gcCreateDefaultData().site,
-    categories: (categoriesResult.data || []).map(category => ({
-      id: category.id,
-      name: category.name,
-      tagline: category.tagline,
-      orbClass: category.orb_class
-    })),
-    posts: (postsResult.data || []).map(post => ({
-      id: post.id,
-      category: post.category_id,
-      title: post.title,
-      content: post.content,
-      createdAt: new Date(post.created_at).getTime(),
-      comments: commentsByPost.get(post.id) || []
-    }))
-  };
 }
 
 async function gcSaveSite(site) {
@@ -118,7 +147,7 @@ async function gcSaveSite(site) {
   const { error } = await client
     .from('gc_settings')
     .upsert({ id: 'site', data: site, updated_at: new Date().toISOString() });
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 async function gcSaveCategory(category) {
@@ -139,7 +168,7 @@ async function gcSaveCategory(category) {
       updated_at: new Date().toISOString()
     })
     .eq('id', category.id);
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 async function gcCreatePost({ category, title, content }) {
@@ -163,7 +192,7 @@ async function gcCreatePost({ category, title, content }) {
     .insert({ category_id: category, title, content, is_published: true })
     .select('id,category_id,title,content,created_at')
     .single();
-  if (error) throw error;
+  if (error) throw new Error(error.message);
   return {
     id: data.id,
     category: data.category_id,
@@ -193,13 +222,13 @@ async function gcUpdatePost(post) {
       updated_at: new Date().toISOString()
     })
     .eq('id', post.id);
-  if (postError) throw postError;
+  if (postError) throw new Error(postError.message);
 
   const { error: deleteError } = await client
     .from('gc_comments')
     .delete()
     .eq('post_id', post.id);
-  if (deleteError) throw deleteError;
+  if (deleteError) throw new Error(deleteError.message);
 
   const comments = (post.comments || []).filter(Boolean).map(content => ({
     post_id: post.id,
@@ -208,7 +237,7 @@ async function gcUpdatePost(post) {
   }));
   if (comments.length) {
     const { error: insertError } = await client.from('gc_comments').insert(comments);
-    if (insertError) throw insertError;
+    if (insertError) throw new Error(insertError.message);
   }
 }
 
@@ -221,7 +250,7 @@ async function gcDeletePost(postId) {
     return;
   }
   const { error } = await client.from('gc_posts').delete().eq('id', postId);
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 async function gcAddComment(postId, content) {
@@ -237,20 +266,24 @@ async function gcAddComment(postId, content) {
     return;
   }
   const { error } = await client.from('gc_comments').insert({ post_id: postId, content, is_published: true });
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 async function gcSignInAdmin(email, password) {
   const client = gcSupabaseClient();
   if (!client) return { local: true };
-  const { data, error } = await client.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  const { data: adminData, error: adminError } = await client.from('gc_admins').select('user_id').eq('user_id', data.user.id).single();
-  if (adminError || !adminData) {
-    await client.auth.signOut();
-    throw new Error('这个账号不是管理员');
+  try {
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    const { data: adminData, error: adminError } = await client.from('gc_admins').select('user_id').eq('user_id', data.user.id).single();
+    if (adminError || !adminData) {
+      await client.auth.signOut();
+      throw new Error('这个账号不是管理员，请确认 User UID 已加入 gc_admins 表');
+    }
+    return data;
+  } catch (error) {
+    throw new Error(gcExplainFetchError(error));
   }
-  return data;
 }
 
 async function gcSignOutAdmin() {

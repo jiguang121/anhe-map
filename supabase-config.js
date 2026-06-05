@@ -1,4 +1,6 @@
 window.GC_SUPABASE_CONFIG = {
-  url: 'https://cznolglidefgpovnehd.supabase.co',
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuem5vbGdsaWRlZmdwb3ZuZWhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTI0ODYsImV4cCI6MjA5NjE2ODQ4Nn0.-W0ciBaeapnpfYHqHDFu6jhZy6kyZXpIoUlkOJ-GCoI'
+  // 已暂时关闭 Supabase。原因：国内网络环境下 Supabase API 连接不稳定。
+  // 后续会迁移到国内后端方案，例如腾讯云 CloudBase / 阿里云。
+  url: '',
+  anonKey: ''
 };

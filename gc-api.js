@@ -1,6 +1,7 @@
 const GC_STORAGE_KEY = 'gc_v4_site_data';
 const GC_VISITOR_KEY = 'gc_visitor_id';
 const GC_ADMIN_TOKEN_KEY = 'gc_admin_token';
+const GC_CLOUDBASE_SDK_URL = 'https://static.cloudbase.net/cloudbase-js-sdk/3.0.1/cloudbase.full.js';
 
 function gcClone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -11,9 +12,16 @@ function gcCreateDefaultData() {
   const now = Date.now();
   data.version = 4;
   data.site = {
-    paymentEnabled: false,
+    ...data.site,
+    visitorLabel: '访客模式',
     dailyFreeViews: Number(data.site?.dailyFreeViews ?? data.site?.viewLimit ?? 5),
-    ...data.site
+    viewLimit: Number(data.site?.dailyFreeViews ?? data.site?.viewLimit ?? 5),
+    paymentEnabled: false,
+    payTitle: '今天的免费阅读额度已经用完',
+    payText: '每天可免费查看 5 条完整内容。会员功能正在内测，正式开放后可无限查看；今天可以先收藏页面，明天继续。',
+    payButtonText: '会员即将开放',
+    loginTitle: '会员功能内测中',
+    loginText: '当前阶段先开放每日免费阅读，后续再开放正式会员与支付。'
   };
   data.posts = (data.posts || []).map(post => ({
     ...post,
@@ -56,26 +64,47 @@ function gcVisitorId() {
   return id;
 }
 
-function gcCloudConfigReady() {
-  const config = window.GC_CLOUDBASE_CONFIG;
-  return Boolean(config?.envId && config?.accessKey && window.cloudbase);
+function gcLoadScript(src, ready) {
+  if (ready()) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-gc-src="${src}"]`);
+    if (existing) {
+      existing.addEventListener('load', resolve, { once: true });
+      existing.addEventListener('error', () => reject(new Error(`加载失败：${src}`)), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = false;
+    script.dataset.gcSrc = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`加载失败：${src}`));
+    document.head.appendChild(script);
+  });
 }
 
-function gcCloudClient() {
-  if (!gcCloudConfigReady()) return null;
-  if (!window.__GC_CLOUDBASE_APP__) {
-    window.__GC_CLOUDBASE_APP__ = window.cloudbase.init({
-      env: window.GC_CLOUDBASE_CONFIG.envId,
-      accessKey: window.GC_CLOUDBASE_CONFIG.accessKey,
-      region: window.GC_CLOUDBASE_CONFIG.region || 'ap-shanghai',
-      timeout: 15000
-    });
+async function gcEnsureCloudClient() {
+  if (window.__GC_CLOUDBASE_APP__) return window.__GC_CLOUDBASE_APP__;
+
+  await gcLoadScript('./cloudbase-config.js', () => Boolean(window.GC_CLOUDBASE_CONFIG));
+  await gcLoadScript(GC_CLOUDBASE_SDK_URL, () => Boolean(window.cloudbase));
+
+  const config = window.GC_CLOUDBASE_CONFIG;
+  if (!config?.envId || !config?.accessKey) {
+    throw new Error('CloudBase 环境配置不完整');
   }
+
+  window.__GC_CLOUDBASE_APP__ = window.cloudbase.init({
+    env: config.envId,
+    accessKey: config.accessKey,
+    region: config.region || 'ap-shanghai',
+    timeout: 15000
+  });
   return window.__GC_CLOUDBASE_APP__;
 }
 
 function gcIsCloudMode() {
-  return Boolean(gcCloudClient());
+  return true;
 }
 
 function gcAdminToken() {
@@ -99,9 +128,7 @@ function gcNormalizeCloudResult(response) {
 }
 
 async function gcCall(action, payload = {}) {
-  const app = gcCloudClient();
-  if (!app) throw new Error('CloudBase 尚未配置完成');
-
+  const app = await gcEnsureCloudClient();
   try {
     const response = await app.callFunction({
       name: window.GC_CLOUDBASE_CONFIG.functionName || 'gc-api',
@@ -113,7 +140,7 @@ async function gcCall(action, payload = {}) {
   } catch (error) {
     const message = error?.message || String(error);
     if (/not found|function.*exist|FUNCTION_NOT_FOUND/i.test(message)) {
-      throw new Error('CloudBase 环境已连接，但 gc-api 云函数尚未部署');
+      throw new Error('CloudBase 已连接，但 gc-api 云函数尚未部署');
     }
     if (/cors|illegal source|origin/i.test(message)) {
       throw new Error('当前网站域名尚未加入 CloudBase 安全来源');
@@ -123,7 +150,6 @@ async function gcCall(action, payload = {}) {
 }
 
 async function gcLoadData() {
-  if (!gcIsCloudMode()) return gcLocalGetData();
   try {
     const result = await gcCall('getContent');
     gcLocalSaveData(result.data);
@@ -135,20 +161,23 @@ async function gcLoadData() {
 }
 
 async function gcGetViewStatus() {
-  const localData = gcLocalGetData();
-  const limit = Number(localData.site?.dailyFreeViews ?? localData.site?.viewLimit ?? 5);
-  if (!gcIsCloudMode()) {
+  try {
+    return (await gcCall('viewStatus', { visitorId: gcVisitorId() })).data;
+  } catch {
+    const data = gcLocalGetData();
+    const limit = Number(data.site?.dailyFreeViews ?? data.site?.viewLimit ?? 5);
     const key = `gc_daily_views_${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })}`;
     const ids = JSON.parse(localStorage.getItem(key) || '[]');
     return { allowed: ids.length < limit, count: ids.length, limit, isMember: false };
   }
-  return (await gcCall('viewStatus', { visitorId: gcVisitorId() })).data;
 }
 
 async function gcCheckView(postId) {
-  const localData = gcLocalGetData();
-  const limit = Number(localData.site?.dailyFreeViews ?? localData.site?.viewLimit ?? 5);
-  if (!gcIsCloudMode()) {
+  try {
+    return (await gcCall('checkView', { visitorId: gcVisitorId(), postId })).data;
+  } catch {
+    const data = gcLocalGetData();
+    const limit = Number(data.site?.dailyFreeViews ?? data.site?.viewLimit ?? 5);
     const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
     const key = `gc_daily_views_${date}`;
     const ids = JSON.parse(localStorage.getItem(key) || '[]');
@@ -159,30 +188,17 @@ async function gcCheckView(postId) {
     localStorage.setItem(key, JSON.stringify(ids));
     return { allowed: true, count: ids.length, limit, isMember: false };
   }
-  return (await gcCall('checkView', { visitorId: gcVisitorId(), postId })).data;
 }
 
 async function gcSubmitPost({ category, title, content }) {
-  if (!gcIsCloudMode()) {
-    return { pending: true, local: true };
-  }
-  return (await gcCall('submitPost', {
-    visitorId: gcVisitorId(), category, title, content
-  })).data;
+  return (await gcCall('submitPost', { visitorId: gcVisitorId(), category, title, content })).data;
 }
 
 async function gcSubmitComment(postId, content) {
-  if (!gcIsCloudMode()) return { pending: true, local: true };
-  return (await gcCall('submitComment', {
-    visitorId: gcVisitorId(), postId, content
-  })).data;
+  return (await gcCall('submitComment', { visitorId: gcVisitorId(), postId, content })).data;
 }
 
 async function gcSaveContent(data) {
-  if (!gcIsCloudMode()) {
-    gcLocalSaveData(data);
-    return;
-  }
   await gcCall('saveContent', { token: gcAdminToken(), data });
   gcLocalSaveData(data);
 }
@@ -201,9 +217,7 @@ async function gcSaveCategory(category) {
 }
 
 async function gcCreatePost({ category, title, content }) {
-  if (!gcHasAdminSession()) {
-    return gcSubmitPost({ category, title, content });
-  }
+  if (!gcHasAdminSession()) return gcSubmitPost({ category, title, content });
   const data = await gcLoadData();
   const post = {
     id: `post_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -237,12 +251,6 @@ async function gcAddComment(postId, content) {
 }
 
 async function gcSignInAdmin(_email, password) {
-  if (!gcIsCloudMode()) {
-    const data = gcLocalGetData();
-    if (password !== data.site.adminPassword) throw new Error('管理密码不对');
-    sessionStorage.setItem(GC_ADMIN_TOKEN_KEY, 'local-admin');
-    return { local: true };
-  }
   const result = await gcCall('adminLogin', { password });
   sessionStorage.setItem(GC_ADMIN_TOKEN_KEY, result.data.token);
   return result.data;
@@ -250,11 +258,11 @@ async function gcSignInAdmin(_email, password) {
 
 async function gcSignOutAdmin() {
   const token = gcAdminToken();
-  if (gcIsCloudMode() && token) {
+  if (token) {
     try {
       await gcCall('adminLogout', { token });
     } catch {
-      // 即使云端退出失败，也清除本地会话。
+      // 云端退出失败时也清除本地会话。
     }
   }
   sessionStorage.removeItem(GC_ADMIN_TOKEN_KEY);

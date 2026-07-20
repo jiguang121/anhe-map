@@ -13,11 +13,15 @@ function getData() {
   return adminData || gcCreateDefaultData();
 }
 
+function cloneData(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 function showToast(message) {
   const toast = $('toast');
   toast.textContent = message;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2600);
+  setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
 function escapeHtml(text) {
@@ -49,7 +53,9 @@ async function requireAdmin() {
 
 function fillCategoryOptions() {
   const data = getData();
-  const options = data.categories.map(category => `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`).join('');
+  const options = data.categories
+    .map(category => `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`)
+    .join('');
   $('categorySelect').innerHTML = options;
   $('postCategory').innerHTML = options;
 }
@@ -86,6 +92,7 @@ function renderPostList() {
   if (!selectedPostId && data.posts[0]) selectedPostId = data.posts[0].id;
 
   $('adminPostList').innerHTML = data.posts
+    .slice()
     .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
     .map(post => `
       <button class="admin-post-item ${post.id === selectedPostId ? 'active' : ''}" data-post-id="${escapeHtml(post.id)}">
@@ -132,6 +139,68 @@ async function reloadAfterSave(message) {
   await refreshAdminData();
   renderAdmin();
   showToast(message);
+}
+
+function normalizeComments(value) {
+  if (Array.isArray(value)) {
+    return value.map(item => String(item || '').trim()).filter(Boolean).slice(0, 50);
+  }
+  if (typeof value === 'string') {
+    return value.split('\n').map(item => item.trim()).filter(Boolean).slice(0, 50);
+  }
+  return [];
+}
+
+function normalizeImportedPosts(rawPosts) {
+  if (!Array.isArray(rawPosts)) throw new Error('JSON 中没有可导入的文章数组');
+
+  const data = getData();
+  const validCategories = new Set(data.categories.map(category => category.id));
+  const fallbackCategory = data.categories[0]?.id || 'privacy';
+  const baseTime = Date.now();
+
+  return rawPosts.map((rawPost, index) => {
+    if (!rawPost || typeof rawPost !== 'object') {
+      throw new Error(`第 ${index + 1} 篇文章格式不正确`);
+    }
+
+    const title = String(rawPost.title || '').trim();
+    const content = String(rawPost.content || '').trim();
+    if (!title || !content) {
+      throw new Error(`第 ${index + 1} 篇文章缺少标题或正文`);
+    }
+
+    const rawId = String(rawPost.id || '').trim();
+    const id = rawId || `import_${baseTime}_${index + 1}_${Math.random().toString(36).slice(2, 7)}`;
+    const category = validCategories.has(rawPost.category) ? rawPost.category : fallbackCategory;
+    const createdAt = Number(rawPost.createdAt) > 0
+      ? Number(rawPost.createdAt)
+      : baseTime - index * 7 * 60 * 1000;
+
+    return {
+      id: id.slice(0, 100),
+      category,
+      title: title.slice(0, 80),
+      content: content.slice(0, 5000),
+      createdAt,
+      comments: normalizeComments(rawPost.comments)
+    };
+  });
+}
+
+function extractPostsFromImport(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === 'object' && Array.isArray(raw.posts)) return raw.posts;
+  throw new Error('请粘贴文章数组，或包含 posts 数组的 JSON');
+}
+
+function mergeImportedPosts(currentData, incomingPosts) {
+  const incomingIds = new Set(incomingPosts.map(post => post.id));
+  const untouchedPosts = currentData.posts.filter(post => !incomingIds.has(post.id));
+  return {
+    ...cloneData(currentData),
+    posts: [...incomingPosts, ...untouchedPosts]
+  };
 }
 
 function bindEvents() {
@@ -245,13 +314,37 @@ function bindEvents() {
     }
   });
 
-  $('exportDataBtn').addEventListener('click', () => {
-    $('dataJson').value = JSON.stringify(getData(), null, 2);
-    showToast('已导出到文本框');
+  $('loadStarterBtn').addEventListener('click', () => {
+    const posts = Array.isArray(window.GC_STARTER_POSTS) ? window.GC_STARTER_POSTS : [];
+    if (!posts.length) return showToast('首批内容文件没有加载成功');
+    $('dataJson').value = JSON.stringify(posts, null, 2);
+    showToast(`已载入 ${posts.length} 篇，确认内容后点击“导入下方 JSON 到云端”`);
   });
 
-  $('importDataBtn').addEventListener('click', () => {
-    showToast('云端批量导入将在下一版开放');
+  $('importDataBtn').addEventListener('click', async () => {
+    const rawText = $('dataJson').value.trim();
+    if (!rawText) return showToast('请先载入或粘贴 JSON');
+
+    try {
+      const parsed = JSON.parse(rawText);
+      const importedPosts = normalizeImportedPosts(extractPostsFromImport(parsed));
+      const duplicateCount = importedPosts.filter(post => getData().posts.some(item => item.id === post.id)).length;
+      const message = `将导入 ${importedPosts.length} 篇文章。${duplicateCount ? `其中 ${duplicateCount} 篇会更新同 ID 文章。` : ''}其他已有文章不会删除。确定继续吗？`;
+      if (!window.confirm(message)) return;
+
+      const nextData = mergeImportedPosts(getData(), importedPosts);
+      await gcSaveContent(nextData);
+      selectedPostId = importedPosts[0]?.id || selectedPostId;
+      await reloadAfterSave(`已导入 ${importedPosts.length} 篇文章到 CloudBase`);
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || 'JSON 导入失败');
+    }
+  });
+
+  $('exportDataBtn').addEventListener('click', () => {
+    $('dataJson').value = JSON.stringify(getData(), null, 2);
+    showToast('已导出当前全部内容到文本框');
   });
 
   $('resetDataBtn').addEventListener('click', () => {

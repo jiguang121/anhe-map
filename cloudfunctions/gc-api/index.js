@@ -1,4 +1,4 @@
-const cloudbase = require('@cloudbase/js-sdk');
+const cloudbase = require('@cloudbase/node-sdk');
 const crypto = require('crypto');
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });

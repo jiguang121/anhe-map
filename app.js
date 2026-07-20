@@ -197,14 +197,32 @@ function bindEvents() {
   $('submitComment').addEventListener('click', async () => {
     const value = $('commentInput').value.trim();
     if (!value) return showToast('先写一句评论');
+    if (!state.currentPostId) return showToast('没有找到当前文章');
+
+    const button = $('submitComment');
+    button.disabled = true;
+    button.textContent = '发布中…';
+
     try {
-      await gcSubmitComment(state.currentPostId, value);
+      const result = await gcSubmitComment(state.currentPostId, value);
       $('commentInput').value = '';
-      closeModal('detailModal');
-      showToast('评论已提交审核');
+
+      if (result?.status === 'pending') {
+        showToast('评论已提交审核');
+        return;
+      }
+
+      await refreshData();
+      const post = getData().posts.find(item => item.id === state.currentPostId);
+      if (post) renderComments(post);
+      renderPosts();
+      showToast('评论已发布');
     } catch (error) {
       console.error(error);
       showToast(error.message || '评论失败，请稍后重试');
+    } finally {
+      button.disabled = false;
+      button.textContent = '发布评论';
     }
   });
 

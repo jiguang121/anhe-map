@@ -1,4 +1,6 @@
-const GC_STORAGE_KEY = 'gc_v2_site_data';
+const GC_STORAGE_KEY = 'gc_v4_site_data';
+const GC_VISITOR_KEY = 'gc_visitor_id';
+const GC_ADMIN_TOKEN_KEY = 'gc_admin_token';
 
 function gcClone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -7,7 +9,13 @@ function gcClone(value) {
 function gcCreateDefaultData() {
   const data = gcClone(window.GC_DEFAULT_DATA);
   const now = Date.now();
-  data.posts = data.posts.map(post => ({
+  data.version = 4;
+  data.site = {
+    paymentEnabled: false,
+    dailyFreeViews: Number(data.site?.dailyFreeViews ?? data.site?.viewLimit ?? 5),
+    ...data.site
+  };
+  data.posts = (data.posts || []).map(post => ({
     ...post,
     createdAt: post.createdAt || now - Number(post.createdAtOffsetMinutes || 0) * 60 * 1000,
     comments: Array.isArray(post.comments) ? post.comments : []
@@ -39,254 +47,215 @@ function gcLocalSaveData(data) {
   localStorage.setItem(GC_STORAGE_KEY, JSON.stringify(data));
 }
 
-function gcConfigKey() {
-  return window.GC_SUPABASE_CONFIG?.anonKey || window.GC_SUPABASE_CONFIG?.publishableKey || '';
-}
-
-function gcHasSupabaseConfig() {
-  return Boolean(
-    window.GC_SUPABASE_CONFIG &&
-    window.GC_SUPABASE_CONFIG.url &&
-    gcConfigKey() &&
-    window.supabase
-  );
-}
-
-function gcSupabaseClient() {
-  if (!gcHasSupabaseConfig()) return null;
-  if (!window.__GC_SUPABASE_CLIENT__) {
-    window.__GC_SUPABASE_CLIENT__ = window.supabase.createClient(
-      window.GC_SUPABASE_CONFIG.url,
-      gcConfigKey(),
-      {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: false
-        },
-        global: {
-          headers: {
-            apikey: gcConfigKey()
-          }
-        }
-      }
-    );
+function gcVisitorId() {
+  let id = localStorage.getItem(GC_VISITOR_KEY);
+  if (!id) {
+    id = `visitor_${Date.now()}_${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(GC_VISITOR_KEY, id);
   }
-  return window.__GC_SUPABASE_CLIENT__;
+  return id;
+}
+
+function gcCloudConfigReady() {
+  const config = window.GC_CLOUDBASE_CONFIG;
+  return Boolean(config?.envId && config?.accessKey && window.cloudbase);
+}
+
+function gcCloudClient() {
+  if (!gcCloudConfigReady()) return null;
+  if (!window.__GC_CLOUDBASE_APP__) {
+    window.__GC_CLOUDBASE_APP__ = window.cloudbase.init({
+      env: window.GC_CLOUDBASE_CONFIG.envId,
+      accessKey: window.GC_CLOUDBASE_CONFIG.accessKey,
+      region: window.GC_CLOUDBASE_CONFIG.region || 'ap-shanghai',
+      timeout: 15000
+    });
+  }
+  return window.__GC_CLOUDBASE_APP__;
 }
 
 function gcIsCloudMode() {
-  return Boolean(gcSupabaseClient());
+  return Boolean(gcCloudClient());
 }
 
-function gcExplainFetchError(error) {
-  const rawMessage = error?.message || String(error || 'Unknown error');
-  if (/failed to fetch|networkerror|load failed/i.test(rawMessage)) {
-    return '无法连接 Supabase。常见原因：网络/代理拦截、Supabase 在当前网络不可访问、浏览器插件拦截，或 API key 类型不兼容。建议先开全局代理刷新后台再试；如果仍失败，请改用 Legacy anon key。';
+function gcAdminToken() {
+  return sessionStorage.getItem(GC_ADMIN_TOKEN_KEY) || '';
+}
+
+function gcHasAdminSession() {
+  return Boolean(gcAdminToken());
+}
+
+function gcNormalizeCloudResult(response) {
+  let result = response?.result ?? response;
+  if (typeof result === 'string') {
+    try {
+      result = JSON.parse(result);
+    } catch {
+      return { ok: false, message: result };
+    }
   }
-  return rawMessage;
+  return result || { ok: false, message: '云函数没有返回结果' };
+}
+
+async function gcCall(action, payload = {}) {
+  const app = gcCloudClient();
+  if (!app) throw new Error('CloudBase 尚未配置完成');
+
+  try {
+    const response = await app.callFunction({
+      name: window.GC_CLOUDBASE_CONFIG.functionName || 'gc-api',
+      data: { action, ...payload }
+    });
+    const result = gcNormalizeCloudResult(response);
+    if (!result.ok) throw new Error(result.message || '云端请求失败');
+    return result;
+  } catch (error) {
+    const message = error?.message || String(error);
+    if (/not found|function.*exist|FUNCTION_NOT_FOUND/i.test(message)) {
+      throw new Error('CloudBase 环境已连接，但 gc-api 云函数尚未部署');
+    }
+    if (/cors|illegal source|origin/i.test(message)) {
+      throw new Error('当前网站域名尚未加入 CloudBase 安全来源');
+    }
+    throw new Error(message);
+  }
 }
 
 async function gcLoadData() {
-  const client = gcSupabaseClient();
-  if (!client) return gcLocalGetData();
-
+  if (!gcIsCloudMode()) return gcLocalGetData();
   try {
-    const [settingsResult, categoriesResult, postsResult, commentsResult] = await Promise.all([
-      client.from('gc_settings').select('data').eq('id', 'site').single(),
-      client.from('gc_categories').select('id,name,tagline,orb_class,sort_order').order('sort_order', { ascending: true }),
-      client.from('gc_posts').select('id,category_id,title,content,created_at').eq('is_published', true).order('created_at', { ascending: false }),
-      client.from('gc_comments').select('id,post_id,content,created_at').eq('is_published', true).order('created_at', { ascending: true })
-    ]);
-
-    const hasError = settingsResult.error || categoriesResult.error || postsResult.error || commentsResult.error;
-    if (hasError) {
-      console.warn('Supabase load failed, fallback to local data:', hasError);
-      return gcLocalGetData();
-    }
-
-    const commentsByPost = new Map();
-    for (const comment of commentsResult.data || []) {
-      const list = commentsByPost.get(comment.post_id) || [];
-      list.push(comment.content);
-      commentsByPost.set(comment.post_id, list);
-    }
-
-    return {
-      version: 3,
-      site: settingsResult.data?.data || gcCreateDefaultData().site,
-      categories: (categoriesResult.data || []).map(category => ({
-        id: category.id,
-        name: category.name,
-        tagline: category.tagline,
-        orbClass: category.orb_class
-      })),
-      posts: (postsResult.data || []).map(post => ({
-        id: post.id,
-        category: post.category_id,
-        title: post.title,
-        content: post.content,
-        createdAt: new Date(post.created_at).getTime(),
-        comments: commentsByPost.get(post.id) || []
-      }))
-    };
+    const result = await gcCall('getContent');
+    gcLocalSaveData(result.data);
+    return result.data;
   } catch (error) {
-    console.warn('Supabase network failed, fallback to local data:', error);
+    console.warn('CloudBase load failed, using cached local data:', error);
     return gcLocalGetData();
   }
 }
 
-async function gcSaveSite(site) {
-  const client = gcSupabaseClient();
-  if (!client) {
-    const data = gcLocalGetData();
-    data.site = site;
+async function gcGetViewStatus() {
+  const localData = gcLocalGetData();
+  const limit = Number(localData.site?.dailyFreeViews ?? localData.site?.viewLimit ?? 5);
+  if (!gcIsCloudMode()) {
+    const key = `gc_daily_views_${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })}`;
+    const ids = JSON.parse(localStorage.getItem(key) || '[]');
+    return { allowed: ids.length < limit, count: ids.length, limit, isMember: false };
+  }
+  return (await gcCall('viewStatus', { visitorId: gcVisitorId() })).data;
+}
+
+async function gcCheckView(postId) {
+  const localData = gcLocalGetData();
+  const limit = Number(localData.site?.dailyFreeViews ?? localData.site?.viewLimit ?? 5);
+  if (!gcIsCloudMode()) {
+    const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+    const key = `gc_daily_views_${date}`;
+    const ids = JSON.parse(localStorage.getItem(key) || '[]');
+    if (!ids.includes(postId) && ids.length >= limit) {
+      return { allowed: false, count: ids.length, limit, isMember: false };
+    }
+    if (!ids.includes(postId)) ids.push(postId);
+    localStorage.setItem(key, JSON.stringify(ids));
+    return { allowed: true, count: ids.length, limit, isMember: false };
+  }
+  return (await gcCall('checkView', { visitorId: gcVisitorId(), postId })).data;
+}
+
+async function gcSubmitPost({ category, title, content }) {
+  if (!gcIsCloudMode()) {
+    return { pending: true, local: true };
+  }
+  return (await gcCall('submitPost', {
+    visitorId: gcVisitorId(), category, title, content
+  })).data;
+}
+
+async function gcSubmitComment(postId, content) {
+  if (!gcIsCloudMode()) return { pending: true, local: true };
+  return (await gcCall('submitComment', {
+    visitorId: gcVisitorId(), postId, content
+  })).data;
+}
+
+async function gcSaveContent(data) {
+  if (!gcIsCloudMode()) {
     gcLocalSaveData(data);
     return;
   }
-  const { error } = await client
-    .from('gc_settings')
-    .upsert({ id: 'site', data: site, updated_at: new Date().toISOString() });
-  if (error) throw new Error(error.message);
+  await gcCall('saveContent', { token: gcAdminToken(), data });
+  gcLocalSaveData(data);
+}
+
+async function gcSaveSite(site) {
+  const data = await gcLoadData();
+  data.site = { ...data.site, ...site };
+  await gcSaveContent(data);
 }
 
 async function gcSaveCategory(category) {
-  const client = gcSupabaseClient();
-  if (!client) {
-    const data = gcLocalGetData();
-    const target = data.categories.find(item => item.id === category.id);
-    if (target) Object.assign(target, category);
-    gcLocalSaveData(data);
-    return;
-  }
-  const { error } = await client
-    .from('gc_categories')
-    .update({
-      name: category.name,
-      tagline: category.tagline,
-      orb_class: category.orbClass,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', category.id);
-  if (error) throw new Error(error.message);
+  const data = await gcLoadData();
+  const target = data.categories.find(item => item.id === category.id);
+  if (target) Object.assign(target, category);
+  await gcSaveContent(data);
 }
 
 async function gcCreatePost({ category, title, content }) {
-  const client = gcSupabaseClient();
-  if (!client) {
-    const data = gcLocalGetData();
-    const post = {
-      id: `post_${Date.now()}`,
-      category,
-      title,
-      content,
-      createdAt: Date.now(),
-      comments: []
-    };
-    data.posts.unshift(post);
-    gcLocalSaveData(data);
-    return post;
+  if (!gcHasAdminSession()) {
+    return gcSubmitPost({ category, title, content });
   }
-  const { data, error } = await client
-    .from('gc_posts')
-    .insert({ category_id: category, title, content, is_published: true })
-    .select('id,category_id,title,content,created_at')
-    .single();
-  if (error) throw new Error(error.message);
-  return {
-    id: data.id,
-    category: data.category_id,
-    title: data.title,
-    content: data.content,
-    createdAt: new Date(data.created_at).getTime(),
+  const data = await gcLoadData();
+  const post = {
+    id: `post_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    category,
+    title,
+    content,
+    createdAt: Date.now(),
     comments: []
   };
+  data.posts.unshift(post);
+  await gcSaveContent(data);
+  return post;
 }
 
 async function gcUpdatePost(post) {
-  const client = gcSupabaseClient();
-  if (!client) {
-    const data = gcLocalGetData();
-    const target = data.posts.find(item => item.id === post.id);
-    if (target) Object.assign(target, post);
-    gcLocalSaveData(data);
-    return;
-  }
-
-  const { error: postError } = await client
-    .from('gc_posts')
-    .update({
-      category_id: post.category,
-      title: post.title,
-      content: post.content,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', post.id);
-  if (postError) throw new Error(postError.message);
-
-  const { error: deleteError } = await client
-    .from('gc_comments')
-    .delete()
-    .eq('post_id', post.id);
-  if (deleteError) throw new Error(deleteError.message);
-
-  const comments = (post.comments || []).filter(Boolean).map(content => ({
-    post_id: post.id,
-    content,
-    is_published: true
-  }));
-  if (comments.length) {
-    const { error: insertError } = await client.from('gc_comments').insert(comments);
-    if (insertError) throw new Error(insertError.message);
-  }
+  const data = await gcLoadData();
+  const target = data.posts.find(item => item.id === post.id);
+  if (!target) throw new Error('文章不存在');
+  Object.assign(target, post);
+  await gcSaveContent(data);
 }
 
 async function gcDeletePost(postId) {
-  const client = gcSupabaseClient();
-  if (!client) {
-    const data = gcLocalGetData();
-    data.posts = data.posts.filter(post => post.id !== postId);
-    gcLocalSaveData(data);
-    return;
-  }
-  const { error } = await client.from('gc_posts').delete().eq('id', postId);
-  if (error) throw new Error(error.message);
+  const data = await gcLoadData();
+  data.posts = data.posts.filter(post => post.id !== postId);
+  await gcSaveContent(data);
 }
 
 async function gcAddComment(postId, content) {
-  const client = gcSupabaseClient();
-  if (!client) {
-    const data = gcLocalGetData();
-    const post = data.posts.find(item => item.id === postId);
-    if (post) {
-      post.comments = post.comments || [];
-      post.comments.push(content);
-      gcLocalSaveData(data);
-    }
-    return;
-  }
-  const { error } = await client.from('gc_comments').insert({ post_id: postId, content, is_published: true });
-  if (error) throw new Error(error.message);
+  return gcSubmitComment(postId, content);
 }
 
-async function gcSignInAdmin(email, password) {
-  const client = gcSupabaseClient();
-  if (!client) return { local: true };
-  try {
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
-    const { data: adminData, error: adminError } = await client.from('gc_admins').select('user_id').eq('user_id', data.user.id).single();
-    if (adminError || !adminData) {
-      await client.auth.signOut();
-      throw new Error('这个账号不是管理员，请确认 User UID 已加入 gc_admins 表');
-    }
-    return data;
-  } catch (error) {
-    throw new Error(gcExplainFetchError(error));
+async function gcSignInAdmin(_email, password) {
+  if (!gcIsCloudMode()) {
+    const data = gcLocalGetData();
+    if (password !== data.site.adminPassword) throw new Error('管理密码不对');
+    sessionStorage.setItem(GC_ADMIN_TOKEN_KEY, 'local-admin');
+    return { local: true };
   }
+  const result = await gcCall('adminLogin', { password });
+  sessionStorage.setItem(GC_ADMIN_TOKEN_KEY, result.data.token);
+  return result.data;
 }
 
 async function gcSignOutAdmin() {
-  const client = gcSupabaseClient();
-  if (client) await client.auth.signOut();
+  const token = gcAdminToken();
+  if (gcIsCloudMode() && token) {
+    try {
+      await gcCall('adminLogout', { token });
+    } catch {
+      // 即使云端退出失败，也清除本地会话。
+    }
+  }
+  sessionStorage.removeItem(GC_ADMIN_TOKEN_KEY);
 }

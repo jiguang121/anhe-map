@@ -1,14 +1,12 @@
 const GC_MEMBER_KEY = 'gc_member';
-const GC_NICKNAME_KEY = 'gc_nickname';
-const GC_VIEW_COUNT_KEY = 'gc_view_count';
 
 const state = {
   data: null,
   currentCategory: 'privacy',
   currentPostId: null,
-  isMember: localStorage.getItem(GC_MEMBER_KEY) === '1',
-  nickname: localStorage.getItem(GC_NICKNAME_KEY) || '',
-  viewCount: Number(localStorage.getItem(GC_VIEW_COUNT_KEY) || 0)
+  isMember: false,
+  viewCount: 0,
+  viewLimit: 5
 };
 
 function $(id) {
@@ -31,7 +29,7 @@ function showToast(message) {
   const toast = $('toast');
   toast.textContent = message;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 1800);
+  setTimeout(() => toast.classList.remove('show'), 2400);
 }
 
 function openModal(id) {
@@ -69,10 +67,18 @@ function escapeHtml(text) {
 }
 
 async function refreshData() {
-  state.data = await gcLoadData();
+  const loaded = await gcLoadData();
+  state.data = loaded || gcLocalGetData();
   if (!state.data.categories.some(category => category.id === state.currentCategory)) {
     state.currentCategory = state.data.categories[0]?.id || 'privacy';
   }
+}
+
+async function refreshViewStatus() {
+  const status = await gcGetViewStatus();
+  state.viewCount = Number(status.count || 0);
+  state.viewLimit = Number(status.limit ?? getData().site.dailyFreeViews ?? getData().site.viewLimit ?? 5);
+  state.isMember = Boolean(status.isMember);
 }
 
 function renderHome() {
@@ -82,11 +88,11 @@ function renderHome() {
   $('homeSubtitle').textContent = data.site.subtitle;
   $('shareBtn').textContent = data.site.shareButtonText || '匿名分享';
   $('feedEyebrow').textContent = data.site.feedEyebrow || 'GENIUS CLUB';
-  $('payTitle').textContent = data.site.payTitle || '你已经看完免费内容';
-  $('payText').textContent = data.site.payText || '继续查看完整秘密，需要登录会员。';
-  $('mockPayBtn').textContent = data.site.payButtonText || '模拟开通会员';
-  $('loginTitle').textContent = data.site.loginTitle || '演示登录';
-  $('loginText').textContent = data.site.loginText || '输入任意昵称即可成为会员。';
+  $('payTitle').textContent = data.site.payTitle || '今天的免费阅读额度已经用完';
+  $('payText').textContent = data.site.payText || '会员功能正在内测。';
+  $('mockPayBtn').textContent = data.site.payButtonText || '会员即将开放';
+  $('loginTitle').textContent = data.site.loginTitle || '会员功能内测中';
+  $('loginText').textContent = data.site.loginText || '当前阶段先开放每日免费阅读。';
 
   $('orbStage').innerHTML = data.categories.map(category => `
     <button class="orb ${escapeHtml(category.orbClass || '')}" data-category="${escapeHtml(category.id)}">
@@ -98,13 +104,12 @@ function renderHome() {
 
 function updateStatus() {
   const data = getData();
-  const limit = Number(data.site.viewLimit || 5);
   $('memberStatus').textContent = state.isMember
-    ? `${data.site.memberLabel || '会员模式'} · ${state.nickname || '匿名天才'}`
-    : data.site.visitorLabel || '游客模式';
+    ? data.site.memberLabel || '会员模式'
+    : data.site.visitorLabel || '访客模式';
   $('viewCount').textContent = state.isMember
     ? '会员可查看全部内容'
-    : `今日已浏览 ${state.viewCount} / ${limit}`;
+    : `今日已浏览 ${state.viewCount} / ${state.viewLimit}`;
 }
 
 function renderPosts() {
@@ -116,7 +121,7 @@ function renderPosts() {
     .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
 
   if (!posts.length) {
-    $('postList').innerHTML = '<div class="empty-card">这个分类还没有内容。你可以先匿名发布一条，或者到后台添加。</div>';
+    $('postList').innerHTML = '<div class="empty-card">这个分类还没有公开内容。</div>';
     return;
   }
 
@@ -143,20 +148,26 @@ function renderPosts() {
   });
 }
 
-function openPost(postId) {
+async function openPost(postId) {
   const data = getData();
-  const limit = Number(data.site.viewLimit || 5);
-  if (!state.isMember && state.viewCount >= limit) {
-    openModal('payModal');
-    return;
-  }
-
   const post = data.posts.find(item => item.id === postId);
   if (!post) return;
 
-  if (!state.isMember) {
-    state.viewCount += 1;
-    localStorage.setItem(GC_VIEW_COUNT_KEY, String(state.viewCount));
+  try {
+    const access = await gcCheckView(postId);
+    state.viewCount = Number(access.count || 0);
+    state.viewLimit = Number(access.limit ?? state.viewLimit);
+    state.isMember = Boolean(access.isMember);
+    updateStatus();
+
+    if (!access.allowed) {
+      openModal('payModal');
+      return;
+    }
+  } catch (error) {
+    console.error(error);
+    showToast('阅读额度校验失败，请稍后重试');
+    return;
   }
 
   state.currentPostId = postId;
@@ -164,7 +175,6 @@ function openPost(postId) {
   $('detailTitle').textContent = post.title;
   $('detailContent').textContent = post.content;
   renderComments(post);
-  updateStatus();
   openModal('detailModal');
 }
 
@@ -172,7 +182,7 @@ function renderComments(post) {
   const comments = post.comments || [];
   $('commentList').innerHTML = comments.length
     ? comments.map(comment => `<div class="comment-item">${escapeHtml(comment)}</div>`).join('')
-    : '<div class="comment-item">还没有评论，做第一个说话的人。</div>';
+    : '<div class="comment-item">还没有已审核评论。</div>';
 }
 
 function bindEvents() {
@@ -187,7 +197,7 @@ function bindEvents() {
   $('backBtn').addEventListener('click', () => switchScreen('home'));
   $('shareBtn').addEventListener('click', () => {
     const data = getData();
-    $('postModalTitle').textContent = `分享到「${categoryName(data, state.currentCategory)}」`;
+    $('postModalTitle').textContent = `投稿到「${categoryName(data, state.currentCategory)}」`;
     openModal('postModal');
   });
   $('loginBtn').addEventListener('click', () => openModal('loginModal'));
@@ -207,17 +217,14 @@ function bindEvents() {
     const content = $('postContent').value.trim();
     if (!title || !content) return showToast('标题和内容都要写');
     try {
-      await gcCreatePost({ category: state.currentCategory, title, content });
+      await gcSubmitPost({ category: state.currentCategory, title, content });
       $('postTitle').value = '';
       $('postContent').value = '';
       closeModal('postModal');
-      await refreshData();
-      renderHome();
-      renderPosts();
-      showToast(gcIsCloudMode() ? '已发布到云端' : '已匿名发布到本机');
+      showToast('投稿已提交，审核通过后会公开');
     } catch (error) {
       console.error(error);
-      showToast('发布失败，请稍后重试');
+      showToast(error.message || '投稿失败，请稍后重试');
     }
   });
 
@@ -225,43 +232,30 @@ function bindEvents() {
     const value = $('commentInput').value.trim();
     if (!value) return showToast('先写一句评论');
     try {
-      await gcAddComment(state.currentPostId, value);
+      await gcSubmitComment(state.currentPostId, value);
       $('commentInput').value = '';
-      await refreshData();
-      const post = getData().posts.find(item => item.id === state.currentPostId);
-      if (post) renderComments(post);
-      renderPosts();
+      closeModal('detailModal');
+      showToast('评论已提交审核');
     } catch (error) {
       console.error(error);
-      showToast('评论失败，请稍后重试');
+      showToast(error.message || '评论失败，请稍后重试');
     }
   });
 
   $('submitLogin').addEventListener('click', () => {
-    const nickname = $('nicknameInput').value.trim() || '匿名天才';
-    state.isMember = true;
-    state.nickname = nickname;
-    localStorage.setItem(GC_MEMBER_KEY, '1');
-    localStorage.setItem(GC_NICKNAME_KEY, nickname);
     closeModal('loginModal');
-    updateStatus();
-    showToast('已进入会员模式');
   });
 
   $('mockPayBtn').addEventListener('click', () => {
-    state.isMember = true;
-    state.nickname = state.nickname || '匿名天才';
-    localStorage.setItem(GC_MEMBER_KEY, '1');
-    localStorage.setItem(GC_NICKNAME_KEY, state.nickname);
     closeModal('payModal');
-    updateStatus();
-    showToast('演示会员已开通');
+    showToast('会员与支付将在内容积累后开放');
   });
 }
 
 async function init() {
   $('postList').innerHTML = '<div class="empty-card">内容加载中……</div>';
   await refreshData();
+  await refreshViewStatus();
   renderHome();
   bindEvents();
   updateStatus();

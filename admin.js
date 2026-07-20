@@ -1,4 +1,3 @@
-const GC_ADMIN_OK_KEY = 'gc_admin_ok';
 const GC_MEMBER_KEY = 'gc_member';
 const GC_NICKNAME_KEY = 'gc_nickname';
 const GC_VIEW_COUNT_KEY = 'gc_view_count';
@@ -18,7 +17,7 @@ function showToast(message) {
   const toast = $('toast');
   toast.textContent = message;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 1800);
+  setTimeout(() => toast.classList.remove('show'), 2600);
 }
 
 function escapeHtml(text) {
@@ -31,17 +30,16 @@ function escapeHtml(text) {
 }
 
 async function refreshAdminData() {
-  adminData = await gcLoadData();
+  const loaded = await gcLoadData();
+  adminData = loaded || gcLocalGetData();
 }
 
 async function requireAdmin() {
-  const ok = sessionStorage.getItem(GC_ADMIN_OK_KEY) === '1';
+  const ok = gcHasAdminSession();
   $('adminLoginCard').classList.toggle('hidden', ok);
   $('adminWorkspace').classList.toggle('hidden', !ok);
-  $('adminEmailLabel').classList.toggle('hidden', !gcIsCloudMode());
-  $('adminModeHint').textContent = gcIsCloudMode()
-    ? '当前是 Supabase 云数据库模式。请使用已加入 gc_admins 的管理员邮箱和密码登录。'
-    : '当前还没配置 Supabase，是本地演示模式。管理密码：genius-admin。';
+  $('adminEmailLabel').classList.add('hidden');
+  $('adminModeHint').textContent = '当前使用腾讯云 CloudBase 国内后台。请输入云函数环境变量中设置的管理员密码。';
 
   if (ok) {
     await refreshAdminData();
@@ -65,7 +63,7 @@ function renderSiteForm() {
   $('siteShareButton').value = site.shareButtonText || '';
   $('siteVisitorLabel').value = site.visitorLabel || '';
   $('siteMemberLabel').value = site.memberLabel || '';
-  $('siteViewLimit').value = Number(site.viewLimit || 5);
+  $('siteViewLimit').value = Number(site.dailyFreeViews ?? site.viewLimit ?? 5);
   $('sitePayTitle').value = site.payTitle || '';
   $('sitePayText').value = site.payText || '';
   $('sitePayButton').value = site.payButtonText || '';
@@ -139,18 +137,11 @@ async function reloadAfterSave(message) {
 function bindEvents() {
   $('adminLoginBtn').addEventListener('click', async () => {
     const password = $('adminLoginPassword').value.trim();
+    if (!password) return showToast('请输入管理密码');
     try {
-      if (gcIsCloudMode()) {
-        const email = $('adminLoginEmail').value.trim();
-        if (!email || !password) return showToast('邮箱和密码都要填写');
-        await gcSignInAdmin(email, password);
-      } else {
-        const data = gcLocalGetData();
-        if (password !== data.site.adminPassword) return showToast('管理密码不对');
-      }
-      sessionStorage.setItem(GC_ADMIN_OK_KEY, '1');
+      await gcSignInAdmin('', password);
       await requireAdmin();
-      showToast('已进入后台');
+      showToast('已进入 CloudBase 后台');
     } catch (error) {
       console.error(error);
       showToast(error.message || '登录失败');
@@ -159,6 +150,7 @@ function bindEvents() {
 
   $('saveSiteBtn').addEventListener('click', async () => {
     const data = getData();
+    const dailyFreeViews = Math.max(0, Number($('siteViewLimit').value || 0));
     const site = {
       ...data.site,
       eyebrow: $('siteEyebrow').value.trim(),
@@ -168,7 +160,9 @@ function bindEvents() {
       shareButtonText: $('siteShareButton').value.trim(),
       visitorLabel: $('siteVisitorLabel').value.trim(),
       memberLabel: $('siteMemberLabel').value.trim(),
-      viewLimit: Math.max(0, Number($('siteViewLimit').value || 0)),
+      dailyFreeViews,
+      viewLimit: dailyFreeViews,
+      paymentEnabled: false,
       payTitle: $('sitePayTitle').value.trim(),
       payText: $('sitePayText').value.trim(),
       payButtonText: $('sitePayButton').value.trim(),
@@ -176,10 +170,10 @@ function bindEvents() {
     };
     try {
       await gcSaveSite(site);
-      await reloadAfterSave(gcIsCloudMode() ? '基础设置已保存到云端' : '基础设置已保存到本机');
+      await reloadAfterSave('基础设置已保存到 CloudBase');
     } catch (error) {
       console.error(error);
-      showToast('保存失败，请检查权限');
+      showToast(error.message || '保存失败');
     }
   });
 
@@ -197,10 +191,10 @@ function bindEvents() {
     };
     try {
       await gcSaveCategory(nextCategory);
-      await reloadAfterSave(gcIsCloudMode() ? '入口已保存到云端' : '入口已保存到本机');
+      await reloadAfterSave('入口设置已保存到 CloudBase');
     } catch (error) {
       console.error(error);
-      showToast('保存失败，请检查权限');
+      showToast(error.message || '保存失败');
     }
   });
 
@@ -210,10 +204,10 @@ function bindEvents() {
     try {
       const post = await gcCreatePost({ category: firstCategory, title: '新文章', content: '这里写正文。' });
       selectedPostId = post.id;
-      await reloadAfterSave(gcIsCloudMode() ? '已在云端新建文章' : '已在本机新建文章');
+      await reloadAfterSave('已在 CloudBase 新建文章');
     } catch (error) {
       console.error(error);
-      showToast('新建失败，请检查权限');
+      showToast(error.message || '新建失败');
     }
   });
 
@@ -231,24 +225,23 @@ function bindEvents() {
     };
     try {
       await gcUpdatePost(post);
-      await reloadAfterSave(gcIsCloudMode() ? '文章已保存到云端' : '文章已保存到本机');
+      await reloadAfterSave('文章已保存到 CloudBase');
     } catch (error) {
       console.error(error);
-      showToast('保存失败，请检查权限');
+      showToast(error.message || '保存失败');
     }
   });
 
   $('deletePostBtn').addEventListener('click', async () => {
     if (!selectedPostId) return showToast('请先选择文章');
-    const ok = window.confirm('确定删除这篇文章吗？');
-    if (!ok) return;
+    if (!window.confirm('确定删除这篇文章吗？')) return;
     try {
       await gcDeletePost(selectedPostId);
       selectedPostId = null;
-      await reloadAfterSave(gcIsCloudMode() ? '文章已从云端删除' : '文章已从本机删除');
+      await reloadAfterSave('文章已从 CloudBase 删除');
     } catch (error) {
       console.error(error);
-      showToast('删除失败，请检查权限');
+      showToast(error.message || '删除失败');
     }
   });
 
@@ -258,18 +251,18 @@ function bindEvents() {
   });
 
   $('importDataBtn').addEventListener('click', () => {
-    showToast('V3 云端导入暂未开放；本机模式可继续用 V2 导入');
+    showToast('云端批量导入将在下一版开放');
   });
 
   $('resetDataBtn').addEventListener('click', () => {
-    showToast('V3 暂不允许一键重置，避免误删云端内容');
+    showToast('为避免误删云端数据，已关闭一键重置');
   });
 
   $('clearMemberBtn').addEventListener('click', () => {
     localStorage.removeItem(GC_MEMBER_KEY);
     localStorage.removeItem(GC_NICKNAME_KEY);
     localStorage.removeItem(GC_VIEW_COUNT_KEY);
-    showToast('已清除本机会员/浏览状态');
+    showToast('已清除本机旧版会员状态');
   });
 }
 

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>天才俱乐部内容后台</title>
   <meta name="robots" content="noindex" />
-  <link rel="stylesheet" href="./styles.css?v=6" />
-  <link rel="stylesheet" href="./admin.css?v=6" />
+  <link rel="stylesheet" href="./styles.css?v=9" />
+  <link rel="stylesheet" href="./admin.css?v=9" />
 </head>
 <body>
   <div class="noise"></div>
@@ -75,17 +75,19 @@
       <article class="admin-card">
         <div class="section-head">
           <div>
-            <p class="eyebrow">BACKUP</p>
-            <h2>内容备份</h2>
+            <p class="eyebrow">BATCH IMPORT</p>
+            <h2>批量导入与备份</h2>
           </div>
         </div>
+        <p class="hint">支持文章数组，或包含 posts 字段的 JSON。重复文章 ID 会更新，其他已有文章不会被删除。</p>
         <div class="tool-stack">
-          <button id="exportDataBtn" class="ghost-btn full">导出当前内容 JSON</button>
-          <button id="importDataBtn" class="ghost-btn full" hidden>导入下方 JSON</button>
+          <button id="loadStarterBtn" class="primary-btn full">载入首批 30 篇内容</button>
+          <button id="importDataBtn" class="ghost-btn full">导入下方 JSON 到云端</button>
+          <button id="exportDataBtn" class="ghost-btn full">导出当前全部内容</button>
           <button id="resetDataBtn" class="danger-btn full" hidden>恢复默认内容</button>
           <button id="clearMemberBtn" class="ghost-btn full" hidden>清除本机会员状态</button>
         </div>
-        <label>备份内容<textarea id="dataJson" class="code-area" placeholder="点击上方按钮生成当前内容备份"></textarea></label>
+        <label>JSON 内容<textarea id="dataJson" class="code-area" placeholder="点击“载入首批 30 篇内容”，或粘贴自己的 JSON"></textarea></label>
       </article>
 
       <article class="admin-card wide-card">
@@ -115,8 +117,9 @@
   </main>
 
   <div id="toast" class="toast"></div>
-  <script src="./site-data.js?v=6"></script>
-  <script src="./gc-api.js?v=6"></script>
-  <script src="./admin.js?v=6"></script>
+  <script src="./site-data.js?v=9"></script>
+  <script src="./gc-api.js?v=9"></script>
+  <script src="./starter-content.js?v=9"></script>
+  <script src="./admin.js?v=9"></script>
 </body>
 </html>

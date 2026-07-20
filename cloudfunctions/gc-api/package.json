@@ -7,6 +7,6 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@cloudbase/js-sdk": "3.0.1"
+    "@cloudbase/js-sdk": "3.6.2"
   }
 }

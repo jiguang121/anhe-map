@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>天才俱乐部后台</title>
+  <title>天才俱乐部内容后台</title>
   <meta name="robots" content="noindex" />
-  <link rel="stylesheet" href="./styles.css?v=4" />
-  <link rel="stylesheet" href="./admin.css?v=4" />
+  <link rel="stylesheet" href="./styles.css?v=6" />
+  <link rel="stylesheet" href="./admin.css?v=6" />
 </head>
 <body>
   <div class="noise"></div>
@@ -15,7 +15,7 @@
       <div>
         <p class="eyebrow">GENIUS CLUB ADMIN</p>
         <h1>内容后台</h1>
-        <p class="subtitle admin-subtitle">管理首页、分类、文章、评论、会员墙和浏览规则。</p>
+        <p class="subtitle admin-subtitle">管理首页文案、三个分类、文章正文和展示评论。</p>
       </div>
       <a class="ghost-btn link-btn" href="./index.html">返回前台</a>
     </header>
@@ -39,7 +39,7 @@
         <div class="section-head">
           <div>
             <p class="eyebrow">SITE COPY</p>
-            <h2>首页与会员墙</h2>
+            <h2>首页设置</h2>
           </div>
           <button id="saveSiteBtn" class="primary-btn">保存基础设置</button>
         </div>
@@ -50,12 +50,12 @@
           <label>信息流小字<input id="siteFeedEyebrow" /></label>
           <label>分享按钮文字<input id="siteShareButton" /></label>
           <label>访客标签<input id="siteVisitorLabel" /></label>
-          <label>会员标签<input id="siteMemberLabel" /></label>
-          <label>每日免费浏览条数<input id="siteViewLimit" type="number" min="0" /></label>
-          <label>会员墙按钮<input id="sitePayButton" /></label>
-          <label class="span-2">会员墙标题<input id="sitePayTitle" /></label>
-          <label class="span-2">会员墙文案<textarea id="sitePayText"></textarea></label>
-          <label class="span-2">会员说明<textarea id="siteLoginText"></textarea></label>
+          <label hidden>会员标签<input id="siteMemberLabel" /></label>
+          <label hidden>每日免费浏览条数<input id="siteViewLimit" type="number" min="0" /></label>
+          <label hidden>会员墙按钮<input id="sitePayButton" /></label>
+          <label hidden>会员墙标题<input id="sitePayTitle" /></label>
+          <label hidden>会员墙文案<textarea id="sitePayText"></textarea></label>
+          <label hidden>会员说明<textarea id="siteLoginText"></textarea></label>
         </div>
       </article>
 
@@ -75,24 +75,24 @@
       <article class="admin-card">
         <div class="section-head">
           <div>
-            <p class="eyebrow">DATA</p>
-            <h2>数据工具</h2>
+            <p class="eyebrow">BACKUP</p>
+            <h2>内容备份</h2>
           </div>
         </div>
         <div class="tool-stack">
           <button id="exportDataBtn" class="ghost-btn full">导出当前内容 JSON</button>
-          <button id="importDataBtn" class="ghost-btn full">导入下方 JSON</button>
-          <button id="resetDataBtn" class="danger-btn full">恢复默认内容</button>
-          <button id="clearMemberBtn" class="ghost-btn full">清除本机会员状态</button>
+          <button id="importDataBtn" class="ghost-btn full" hidden>导入下方 JSON</button>
+          <button id="resetDataBtn" class="danger-btn full" hidden>恢复默认内容</button>
+          <button id="clearMemberBtn" class="ghost-btn full" hidden>清除本机会员状态</button>
         </div>
-        <label>JSON 数据<textarea id="dataJson" class="code-area" placeholder="导出或粘贴 JSON"></textarea></label>
+        <label>备份内容<textarea id="dataJson" class="code-area" placeholder="点击上方按钮生成当前内容备份"></textarea></label>
       </article>
 
       <article class="admin-card wide-card">
         <div class="section-head">
           <div>
             <p class="eyebrow">POSTS</p>
-            <h2>文章与评论</h2>
+            <h2>文章与展示评论</h2>
           </div>
           <div class="button-row">
             <button id="newPostBtn" class="ghost-btn">新建文章</button>
@@ -107,7 +107,7 @@
             <label>分类<select id="postCategory"></select></label>
             <label>标题<input id="postTitleAdmin" /></label>
             <label>正文<textarea id="postContentAdmin"></textarea></label>
-            <label>评论，每行一条<textarea id="postCommentsAdmin"></textarea></label>
+            <label>展示评论，每行一条<textarea id="postCommentsAdmin"></textarea></label>
           </div>
         </div>
       </article>
@@ -115,8 +115,8 @@
   </main>
 
   <div id="toast" class="toast"></div>
-  <script src="./site-data.js?v=4"></script>
-  <script src="./gc-api.js?v=5"></script>
-  <script src="./admin.js?v=4"></script>
+  <script src="./site-data.js?v=6"></script>
+  <script src="./gc-api.js?v=6"></script>
+  <script src="./admin.js?v=6"></script>
 </body>
 </html>

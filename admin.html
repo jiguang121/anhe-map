@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>天才俱乐部后台</title>
   <meta name="robots" content="noindex" />
-  <link rel="stylesheet" href="./styles.css" />
-  <link rel="stylesheet" href="./admin.css" />
+  <link rel="stylesheet" href="./styles.css?v=4" />
+  <link rel="stylesheet" href="./admin.css?v=4" />
 </head>
 <body>
   <div class="noise"></div>
@@ -22,14 +22,14 @@
 
     <section id="adminLoginCard" class="admin-card">
       <h2>进入后台</h2>
-      <p id="adminModeHint" class="hint">如果已配置 Supabase，请使用管理员邮箱和密码登录。未配置时仍可用本地演示密码 genius-admin。</p>
-      <label id="adminEmailLabel">
+      <p id="adminModeHint" class="hint">当前使用腾讯云 CloudBase 国内后台，请输入管理员密码。</p>
+      <label id="adminEmailLabel" class="hidden">
         管理员邮箱
-        <input id="adminLoginEmail" type="email" placeholder="你的 Supabase 管理员邮箱" />
+        <input id="adminLoginEmail" type="email" />
       </label>
       <label>
         管理密码
-        <input id="adminLoginPassword" type="password" placeholder="输入管理密码" />
+        <input id="adminLoginPassword" type="password" placeholder="输入管理密码" autocomplete="current-password" />
       </label>
       <button id="adminLoginBtn" class="primary-btn full">进入管理</button>
     </section>
@@ -49,13 +49,13 @@
           <label class="span-2">首页副标题<textarea id="siteSubtitle"></textarea></label>
           <label>信息流小字<input id="siteFeedEyebrow" /></label>
           <label>分享按钮文字<input id="siteShareButton" /></label>
-          <label>游客标签<input id="siteVisitorLabel" /></label>
+          <label>访客标签<input id="siteVisitorLabel" /></label>
           <label>会员标签<input id="siteMemberLabel" /></label>
-          <label>游客免费浏览条数<input id="siteViewLimit" type="number" min="0" /></label>
+          <label>每日免费浏览条数<input id="siteViewLimit" type="number" min="0" /></label>
           <label>会员墙按钮<input id="sitePayButton" /></label>
           <label class="span-2">会员墙标题<input id="sitePayTitle" /></label>
           <label class="span-2">会员墙文案<textarea id="sitePayText"></textarea></label>
-          <label class="span-2">登录说明<textarea id="siteLoginText"></textarea></label>
+          <label class="span-2">会员说明<textarea id="siteLoginText"></textarea></label>
         </div>
       </article>
 
@@ -115,10 +115,8 @@
   </main>
 
   <div id="toast" class="toast"></div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./supabase-config.js"></script>
-  <script src="./site-data.js"></script>
-  <script src="./gc-api.js"></script>
-  <script src="./admin.js"></script>
+  <script src="./site-data.js?v=4"></script>
+  <script src="./gc-api.js?v=4"></script>
+  <script src="./admin.js?v=4"></script>
 </body>
 </html>

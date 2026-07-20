@@ -56,6 +56,7 @@ function defaultContent() {
       dailyFreeViews: 5,
       viewLimit: 5,
       paymentEnabled: false,
+      commentModerationEnabled: false,
       payTitle: '今天的免费阅读额度已经用完',
       payText: '每天可免费查看 5 条完整内容。会员功能正在内测，正式开放后可无限查看；今天可以先收藏页面，明天继续。',
       payButtonText: '会员即将开放',
@@ -153,6 +154,7 @@ async function saveContent(data) {
   const safeData = JSON.parse(serialized);
   safeData.version = 4;
   safeData.site.paymentEnabled = false;
+  safeData.site.commentModerationEnabled = Boolean(safeData.site.commentModerationEnabled);
   safeData.site.dailyFreeViews = Math.max(
     0,
     Math.min(100, Number(safeData.site.dailyFreeViews ?? safeData.site.viewLimit ?? 5))
@@ -245,6 +247,30 @@ async function createSubmission(type, payload) {
   return { id: result.id || result._id, status: 'pending' };
 }
 
+async function submitComment(payload) {
+  const visitorId = cleanText(payload.visitorId, 120);
+  const postId = cleanText(payload.postId, 80);
+  const content = cleanText(payload.content, 240);
+  if (!visitorId || !postId || !content) throw new Error('评论内容不完整');
+
+  const data = await getContent();
+  if (Boolean(data.site?.commentModerationEnabled)) {
+    return createSubmission('comment', { visitorId, postId, content });
+  }
+
+  const post = data.posts.find(item => item.id === postId);
+  if (!post) throw new Error('文章不存在');
+  if (!Array.isArray(post.comments)) post.comments = [];
+  post.comments.push(content);
+  await saveContent(data);
+
+  return {
+    status: 'published',
+    comment: content,
+    comments: post.comments
+  };
+}
+
 function configuredAdminPassword() {
   return String(process.env.GC_ADMIN_PASSWORD || '');
 }
@@ -307,7 +333,7 @@ exports.main = async (event = {}) => {
     }
 
     if (action === 'submitComment') {
-      return ok(await createSubmission('comment', event));
+      return ok(await submitComment(event));
     }
 
     if (action === 'adminLogin') {

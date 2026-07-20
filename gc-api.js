@@ -1,7 +1,6 @@
 const GC_STORAGE_KEY = 'gc_v4_site_data';
 const GC_VISITOR_KEY = 'gc_visitor_id';
 const GC_ADMIN_TOKEN_KEY = 'gc_admin_token';
-const GC_CLOUDBASE_SDK_URL = 'https://static.cloudbase.net/cloudbase-js-sdk/3.0.1/cloudbase.full.js';
 
 function gcClone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -83,24 +82,13 @@ function gcLoadScript(src, ready) {
   });
 }
 
-async function gcEnsureCloudClient() {
-  if (window.__GC_CLOUDBASE_APP__) return window.__GC_CLOUDBASE_APP__;
-
-  await gcLoadScript('./cloudbase-config.js', () => Boolean(window.GC_CLOUDBASE_CONFIG));
-  await gcLoadScript(GC_CLOUDBASE_SDK_URL, () => Boolean(window.cloudbase));
-
+async function gcEnsureCloudConfig() {
+  await gcLoadScript('./cloudbase-config.js?v=5', () => Boolean(window.GC_CLOUDBASE_CONFIG));
   const config = window.GC_CLOUDBASE_CONFIG;
   if (!config?.envId || !config?.accessKey) {
     throw new Error('CloudBase 环境配置不完整');
   }
-
-  window.__GC_CLOUDBASE_APP__ = window.cloudbase.init({
-    env: config.envId,
-    accessKey: config.accessKey,
-    region: config.region || 'ap-shanghai',
-    timeout: 15000
-  });
-  return window.__GC_CLOUDBASE_APP__;
+  return config;
 }
 
 function gcIsCloudMode() {
@@ -115,37 +103,86 @@ function gcHasAdminSession() {
   return Boolean(gcAdminToken());
 }
 
-function gcNormalizeCloudResult(response) {
-  let result = response?.result ?? response;
-  if (typeof result === 'string') {
-    try {
-      result = JSON.parse(result);
-    } catch {
-      return { ok: false, message: result };
-    }
+function gcTryParseJson(value) {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
   }
+}
+
+function gcNormalizeCloudResult(response) {
+  let result = response;
+
+  if (result?.body?.data?.response_data !== undefined) {
+    result = result.body.data.response_data;
+  } else if (result?.data?.response_data !== undefined) {
+    result = result.data.response_data;
+  } else if (result?.result !== undefined) {
+    result = result.result;
+  }
+
+  result = gcTryParseJson(result);
+
+  if (result?.result !== undefined && result.ok === undefined) {
+    result = gcTryParseJson(result.result);
+  }
+
+  if (typeof result === 'string') {
+    return { ok: false, message: result };
+  }
+
   return result || { ok: false, message: '云函数没有返回结果' };
 }
 
 async function gcCall(action, payload = {}) {
-  const app = await gcEnsureCloudClient();
+  const config = await gcEnsureCloudConfig();
+  const functionName = config.functionName || 'gc-api';
+  const endpoint = `https://${config.envId}.api.tcloudbasegateway.com/v1/functions/${encodeURIComponent(functionName)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
   try {
-    const response = await app.callFunction({
-      name: window.GC_CLOUDBASE_CONFIG.functionName || 'gc-api',
-      data: { action, ...payload }
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${config.accessKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action, ...payload }),
+      signal: controller.signal
     });
-    const result = gcNormalizeCloudResult(response);
+
+    const text = await response.text();
+    const body = gcTryParseJson(text);
+
+    if (!response.ok) {
+      const message = body?.message || body?.errorMessage || text || `HTTP ${response.status}`;
+      throw new Error(message);
+    }
+
+    const result = gcNormalizeCloudResult(body);
     if (!result.ok) throw new Error(result.message || '云端请求失败');
     return result;
   } catch (error) {
-    const message = error?.message || String(error);
+    const message = error?.name === 'AbortError'
+      ? '连接 CloudBase 超时，请稍后重试'
+      : (error?.message || String(error));
+
     if (/not found|function.*exist|FUNCTION_NOT_FOUND/i.test(message)) {
       throw new Error('CloudBase 已连接，但 gc-api 云函数尚未部署');
     }
-    if (/cors|illegal source|origin/i.test(message)) {
-      throw new Error('当前网站域名尚未加入 CloudBase 安全来源');
+    if (/cors|illegal source|origin|failed to fetch/i.test(message)) {
+      throw new Error('浏览器无法访问 CloudBase HTTP API，请检查网络或安全来源配置');
+    }
+    if (/authority|forbidden|unauthorized|authentication|ACTION_FORBIDDEN|EXCEED_AUTHORITY/i.test(message)) {
+      throw new Error('CloudBase 拒绝了当前调用，请检查云函数 HTTP API 权限');
     }
     throw new Error(message);
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

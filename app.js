@@ -1,12 +1,7 @@
-const GC_MEMBER_KEY = 'gc_member';
-
 const state = {
   data: null,
   currentCategory: 'privacy',
-  currentPostId: null,
-  isMember: false,
-  viewCount: 0,
-  viewLimit: 5
+  currentPostId: null
 };
 
 function $(id) {
@@ -74,13 +69,6 @@ async function refreshData() {
   }
 }
 
-async function refreshViewStatus() {
-  const status = await gcGetViewStatus();
-  state.viewCount = Number(status.count || 0);
-  state.viewLimit = Number(status.limit ?? getData().site.dailyFreeViews ?? getData().site.viewLimit ?? 5);
-  state.isMember = Boolean(status.isMember);
-}
-
 function renderHome() {
   const data = getData();
   $('homeEyebrow').textContent = data.site.eyebrow;
@@ -88,11 +76,11 @@ function renderHome() {
   $('homeSubtitle').textContent = data.site.subtitle;
   $('shareBtn').textContent = data.site.shareButtonText || '匿名分享';
   $('feedEyebrow').textContent = data.site.feedEyebrow || 'GENIUS CLUB';
-  $('payTitle').textContent = data.site.payTitle || '今天的免费阅读额度已经用完';
-  $('payText').textContent = data.site.payText || '会员功能正在内测。';
-  $('mockPayBtn').textContent = data.site.payButtonText || '会员即将开放';
-  $('loginTitle').textContent = data.site.loginTitle || '会员功能内测中';
-  $('loginText').textContent = data.site.loginText || '当前阶段先开放每日免费阅读。';
+  $('payTitle').textContent = '会员功能预留';
+  $('payText').textContent = '当前版本全部内容开放浏览。';
+  $('mockPayBtn').textContent = '返回内容';
+  $('loginTitle').textContent = '会员功能预留';
+  $('loginText').textContent = '当前版本无需登录即可浏览全部内容。';
 
   $('orbStage').innerHTML = data.categories.map(category => `
     <button class="orb ${escapeHtml(category.orbClass || '')}" data-category="${escapeHtml(category.id)}">
@@ -103,13 +91,8 @@ function renderHome() {
 }
 
 function updateStatus() {
-  const data = getData();
-  $('memberStatus').textContent = state.isMember
-    ? data.site.memberLabel || '会员模式'
-    : data.site.visitorLabel || '访客模式';
-  $('viewCount').textContent = state.isMember
-    ? '会员可查看全部内容'
-    : `今日已浏览 ${state.viewCount} / ${state.viewLimit}`;
+  $('memberStatus').textContent = '开放浏览';
+  $('viewCount').textContent = '全部内容均可查看';
 }
 
 function renderPosts() {
@@ -148,27 +131,10 @@ function renderPosts() {
   });
 }
 
-async function openPost(postId) {
+function openPost(postId) {
   const data = getData();
   const post = data.posts.find(item => item.id === postId);
   if (!post) return;
-
-  try {
-    const access = await gcCheckView(postId);
-    state.viewCount = Number(access.count || 0);
-    state.viewLimit = Number(access.limit ?? state.viewLimit);
-    state.isMember = Boolean(access.isMember);
-    updateStatus();
-
-    if (!access.allowed) {
-      openModal('payModal');
-      return;
-    }
-  } catch (error) {
-    console.error(error);
-    showToast('阅读额度校验失败，请稍后重试');
-    return;
-  }
 
   state.currentPostId = postId;
   $('detailMeta').textContent = `匿名成员 · ${formatTime(post.createdAt)} · ${categoryName(data, post.category)}`;
@@ -182,7 +148,7 @@ function renderComments(post) {
   const comments = post.comments || [];
   $('commentList').innerHTML = comments.length
     ? comments.map(comment => `<div class="comment-item">${escapeHtml(comment)}</div>`).join('')
-    : '<div class="comment-item">还没有已审核评论。</div>';
+    : '<div class="comment-item">暂无公开评论。</div>';
 }
 
 function bindEvents() {
@@ -242,20 +208,13 @@ function bindEvents() {
     }
   });
 
-  $('submitLogin').addEventListener('click', () => {
-    closeModal('loginModal');
-  });
-
-  $('mockPayBtn').addEventListener('click', () => {
-    closeModal('payModal');
-    showToast('会员与支付将在内容积累后开放');
-  });
+  $('submitLogin').addEventListener('click', () => closeModal('loginModal'));
+  $('mockPayBtn').addEventListener('click', () => closeModal('payModal'));
 }
 
 async function init() {
   $('postList').innerHTML = '<div class="empty-card">内容加载中……</div>';
   await refreshData();
-  await refreshViewStatus();
   renderHome();
   bindEvents();
   updateStatus();

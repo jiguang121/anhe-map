@@ -1,12 +1,12 @@
 {
   "name": "genius-club-cloudbase-api",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "main": "index.js",
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "@cloudbase/js-sdk": "3.6.2"
+    "@cloudbase/node-sdk": "3.18.0"
   }
 }

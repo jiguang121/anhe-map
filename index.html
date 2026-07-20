@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>天才俱乐部 Genius Club</title>
   <meta name="description" content="天才俱乐部：隐私、心事、爆料的匿名分享空间。" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=4" />
 </head>
 <body>
   <div class="noise"></div>
@@ -21,7 +21,6 @@
 
       <div class="home-actions">
         <button id="loginBtn" class="ghost-btn">登录 / 会员入口</button>
-        <a class="ghost-btn link-btn" href="./admin.html">后台管理</a>
       </div>
     </section>
 
@@ -36,7 +35,7 @@
       </header>
 
       <div class="stats-card">
-        <span id="memberStatus">游客模式</span>
+        <span id="memberStatus">访客模式</span>
         <span id="viewCount">今日已浏览 0 / 5</span>
       </div>
 
@@ -57,7 +56,7 @@
         内容
         <textarea id="postContent" maxlength="600" placeholder="写下你想匿名说出来的事……"></textarea>
       </label>
-      <button id="submitPost" class="primary-btn full">发布到当前分类</button>
+      <button id="submitPost" class="primary-btn full">提交审核</button>
     </div>
   </div>
 
@@ -72,7 +71,7 @@
         <div id="commentList" class="comment-list"></div>
         <div class="comment-input-row">
           <input id="commentInput" maxlength="120" placeholder="匿名评论一句……" />
-          <button id="submitComment" class="primary-btn">发送</button>
+          <button id="submitComment" class="primary-btn">提交审核</button>
         </div>
       </div>
     </div>
@@ -82,18 +81,18 @@
     <div class="modal-panel pay-panel">
       <button class="close-btn" data-close="payModal">×</button>
       <p class="eyebrow">会员墙</p>
-      <h3 id="payTitle">你已经看完 5 条免费内容</h3>
-      <p id="payText">继续查看完整秘密，需要登录会员。</p>
-      <button id="mockPayBtn" class="primary-btn full">模拟开通会员</button>
+      <h3 id="payTitle">今天的免费阅读额度已经用完</h3>
+      <p id="payText">每天可免费查看 5 条完整内容。会员功能正在内测，明天可以继续免费阅读。</p>
+      <button id="mockPayBtn" class="primary-btn full">会员即将开放</button>
     </div>
   </div>
 
   <div id="loginModal" class="modal" aria-hidden="true">
     <div class="modal-panel">
       <button class="close-btn" data-close="loginModal">×</button>
-      <p class="eyebrow">登录入口</p>
-      <h3 id="loginTitle">演示登录</h3>
-      <p id="loginText" class="hint">输入任意昵称即可成为“会员”。这是前端演示，不是真实账号系统。</p>
+      <p class="eyebrow">会员入口</p>
+      <h3 id="loginTitle">会员功能内测中</h3>
+      <p id="loginText" class="hint">当前阶段先开放每日免费阅读，后续再开放正式会员与支付。</p>
       <label>
         昵称
         <input id="nicknameInput" maxlength="16" placeholder="例如：匿名天才" />
@@ -103,10 +102,8 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./supabase-config.js"></script>
-  <script src="./site-data.js"></script>
-  <script src="./gc-api.js"></script>
-  <script src="./app.js"></script>
+  <script src="./site-data.js?v=4"></script>
+  <script src="./gc-api.js?v=4"></script>
+  <script src="./app.js?v=4"></script>
 </body>
 </html>

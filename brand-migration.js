@@ -1,54 +1,37 @@
 (() => {
-  const brand = {
-    eyebrow: '半句故事记录',
-    title: '半句',
-    subtitle: '那些没说完、没说出口的话，都留在这里。',
-    feedEyebrow: '半句 · 故事记录'
-  };
+  const BRAND = '半句';
+  const SUBTITLE = '那些没说完、没说出口的话，都留在这里。';
 
-  let finished = false;
-  let attempts = 0;
-  let timer = null;
-
-  function stop() {
-    if (timer) clearInterval(timer);
-    timer = null;
+  function setText(id, value) {
+    const element = document.getElementById(id);
+    if (element && element.textContent !== value) element.textContent = value;
   }
 
-  function isOldBrand(site) {
-    return site?.title === '天才俱乐部'
-      || String(site?.eyebrow || '').includes('GENIUS CLUB')
-      || String(site?.feedEyebrow || '').includes('GENIUS CLUB');
+  function setValue(id, value) {
+    const element = document.getElementById(id);
+    if (element && element.value !== value) element.value = value;
   }
 
-  async function migrateBrand() {
-    if (finished || !gcHasAdminSession()) return;
+  function applyBrand() {
+    document.title = location.pathname.endsWith('admin.html') ? '半句后台' : BRAND;
+    setText('homeEyebrow', BRAND);
+    setText('homeTitle', BRAND);
+    setText('homeSubtitle', SUBTITLE);
+    setText('feedEyebrow', BRAND);
+    setValue('siteEyebrow', BRAND);
+    setValue('siteTitle', BRAND);
+    setValue('siteSubtitle', SUBTITLE);
+    setValue('siteFeedEyebrow', BRAND);
 
-    try {
-      const data = await gcLoadData();
-      if (!data?.site || !isOldBrand(data.site)) {
-        finished = true;
-        stop();
-        return;
-      }
-
-      data.site = { ...data.site, ...brand };
-      await gcSaveContent(data);
-      finished = true;
-      stop();
-
-      if (typeof refreshAdminData === 'function') await refreshAdminData();
-      if (typeof renderAdmin === 'function') renderAdmin();
-      if (typeof showToast === 'function') showToast('整站名称已更新为“半句”');
-    } catch (error) {
-      console.error('Brand migration failed:', error);
-    }
+    const adminMark = document.querySelector('.admin-header .eyebrow');
+    if (adminMark && adminMark.textContent !== BRAND) adminMark.textContent = BRAND;
   }
 
-  migrateBrand();
-  timer = setInterval(() => {
-    attempts += 1;
-    migrateBrand();
-    if (attempts >= 600) stop();
-  }, 1000);
+  applyBrand();
+  document.addEventListener('DOMContentLoaded', applyBrand, { once: true });
+  new MutationObserver(applyBrand).observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+  setInterval(applyBrand, 1000);
 })();

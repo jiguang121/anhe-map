@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>半句</title>
   <meta name="description" content="半句：记录那些没说完、没说出口的隐私、心事与生活片段。" />
-  <link rel="stylesheet" href="./styles.css?v=13" />
+  <link rel="stylesheet" href="./styles.css?v=14" />
+  <link rel="stylesheet" href="./editorial.css?v=14" />
 </head>
 <body>
   <div class="noise"></div>
@@ -54,7 +55,7 @@
       </label>
       <label>
         内容
-        <textarea id="postContent" maxlength="600" placeholder="写下你想匿名说出来的话……"></textarea>
+        <textarea id="postContent" maxlength="1200" placeholder="写下你想匿名说出来的话……"></textarea>
       </label>
       <button id="submitPost" class="primary-btn full">发布文章</button>
     </div>
@@ -70,7 +71,7 @@
         <h4>评论区</h4>
         <div id="commentList" class="comment-list"></div>
         <div class="comment-input-row">
-          <input id="commentInput" maxlength="120" placeholder="匿名评论一句，提交后直接公开……" />
+          <input id="commentInput" maxlength="200" placeholder="匿名评论一句，提交后直接公开……" />
           <button id="submitComment" class="primary-btn">发布评论</button>
         </div>
       </div>
@@ -102,9 +103,10 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="./site-data.js?v=13"></script>
-  <script src="./gc-api.js?v=13"></script>
-  <script src="./app.js?v=13"></script>
-  <script src="./brand-migration.js?v=13"></script>
+  <script src="./site-data.js?v=14"></script>
+  <script src="./gc-api.js?v=14"></script>
+  <script src="./app.js?v=14"></script>
+  <script src="./editorial-ui.js?v=14"></script>
+  <script src="./brand-migration.js?v=14"></script>
 </body>
 </html>

@@ -30,6 +30,7 @@ html, body {
 
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
+button:disabled { cursor: wait; opacity: .62; }
 
 .noise {
   position: fixed;
@@ -78,6 +79,55 @@ h1 {
   margin-bottom: 18px;
   letter-spacing: -0.08em;
   text-shadow: 0 0 34px rgba(181,128,255,.38);
+}
+
+.brand-title {
+  display: inline-block;
+  position: relative;
+  margin: 12px 0 26px;
+  padding: 0 .14em .08em;
+  font-family: "STSong", "Songti SC", "Noto Serif SC", "Source Han Serif SC", serif;
+  font-size: clamp(66px, 12vw, 132px);
+  font-weight: 600;
+  line-height: .92;
+  letter-spacing: .22em;
+  text-indent: .22em;
+  color: transparent;
+  background:
+    linear-gradient(115deg, #fff 4%, #e6dcff 36%, #9feeff 68%, #ffd6ee 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0 16px rgba(181,128,255,.34)) drop-shadow(0 12px 36px rgba(0,0,0,.46));
+}
+
+.brand-title::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -.08em;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(107,231,255,.7), rgba(255,117,200,.7), transparent);
+  box-shadow: 0 0 18px rgba(181,128,255,.45);
+}
+
+.brand-title::after {
+  content: "未说完的话，也值得被听见";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 14px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 90vw;
+  color: rgba(248,243,255,.42);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .34em;
+  text-indent: .34em;
+  text-shadow: none;
 }
 
 .subtitle {
@@ -229,6 +279,16 @@ input, textarea, select {
 }
 textarea { min-height: 140px; resize: vertical; }
 .hint { color: var(--muted); line-height: 1.7; }
+.publish-note {
+  margin: 4px 0 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(107,231,255,.16);
+  border-radius: 16px;
+  background: rgba(107,231,255,.06);
+  color: rgba(248,243,255,.62);
+  font-size: 13px;
+  line-height: 1.7;
+}
 .detail-content { color: rgba(255,255,255,.86); line-height: 1.9; white-space: pre-wrap; }
 .comment-box { border-top: 1px solid var(--line); margin-top: 22px; padding-top: 18px; }
 .comment-list { display: grid; gap: 10px; margin-bottom: 12px; }
@@ -253,6 +313,8 @@ textarea { min-height: 140px; resize: vertical; }
 @media (max-width: 720px) {
   .app-shell { padding: 14px; }
   #home { border-radius: 24px; padding-top: 32px; }
+  .brand-title { font-size: clamp(64px, 22vw, 96px); margin-top: 8px; }
+  .brand-title::after { font-size: 10px; letter-spacing: .22em; text-indent: .22em; }
   .orb-stage { height: 470px; }
   .orb-privacy { left: 0; top: 18%; }
   .orb-mind { right: 0; top: 30%; }

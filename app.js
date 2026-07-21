@@ -5,10 +5,10 @@ const state = {
 };
 
 const BANJU_SITE_BRAND = {
-  eyebrow: '半句故事记录',
+  eyebrow: '',
   title: '半句',
   subtitle: '那些没说完、没说出口的话，都留在这里。',
-  feedEyebrow: '半句 · 故事记录'
+  feedEyebrow: '半句'
 };
 
 function $(id) {
@@ -90,11 +90,12 @@ async function refreshData() {
 
 function renderHome() {
   const data = getData();
-  document.title = '半句故事记录';
-  $('homeEyebrow').textContent = data.site.eyebrow || BANJU_SITE_BRAND.eyebrow;
+  document.title = '半句';
+  const homeEyebrow = $('homeEyebrow');
+  if (homeEyebrow) homeEyebrow.textContent = '';
   $('homeTitle').textContent = data.site.title || BANJU_SITE_BRAND.title;
   $('homeSubtitle').textContent = data.site.subtitle || BANJU_SITE_BRAND.subtitle;
-  $('shareBtn').textContent = data.site.shareButtonText || '匿名分享';
+  $('shareBtn').textContent = '新增文章';
   $('feedEyebrow').textContent = data.site.feedEyebrow || BANJU_SITE_BRAND.feedEyebrow;
   $('payTitle').textContent = '会员功能预留';
   $('payText').textContent = '当前版本全部内容开放浏览。';
@@ -124,7 +125,7 @@ function renderPosts() {
     .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
 
   if (!posts.length) {
-    $('postList').innerHTML = '<div class="empty-card">这个分类还没有公开内容。</div>';
+    $('postList').innerHTML = '<div class="empty-card">这个分类还没有公开内容。可以点击“新增文章”写下第一篇。</div>';
     return;
   }
 
@@ -183,7 +184,7 @@ function bindEvents() {
   $('backBtn').addEventListener('click', () => switchScreen('home'));
   $('shareBtn').addEventListener('click', () => {
     const data = getData();
-    $('postModalTitle').textContent = `投稿到「${categoryName(data, state.currentCategory)}」`;
+    $('postModalTitle').textContent = `新增到「${categoryName(data, state.currentCategory)}」`;
     openModal('postModal');
   });
   $('loginBtn').addEventListener('click', () => openModal('loginModal'));
@@ -202,15 +203,31 @@ function bindEvents() {
     const title = $('postTitle').value.trim();
     const content = $('postContent').value.trim();
     if (!title || !content) return showToast('标题和内容都要写');
+
+    const button = $('submitPost');
+    button.disabled = true;
+    button.textContent = '发布中…';
+
     try {
-      await gcSubmitPost({ category: state.currentCategory, title, content });
+      const result = await gcSubmitPost({ category: state.currentCategory, title, content });
       $('postTitle').value = '';
       $('postContent').value = '';
       closeModal('postModal');
-      showToast('投稿已提交，审核通过后会公开');
+
+      if (result?.status === 'published') {
+        await refreshData();
+        renderHome();
+        renderPosts();
+        showToast('文章已发布');
+      } else {
+        showToast('文章已提交，等待处理');
+      }
     } catch (error) {
       console.error(error);
-      showToast(error.message || '投稿失败，请稍后重试');
+      showToast(error.message || '发布失败，请稍后重试');
+    } finally {
+      button.disabled = false;
+      button.textContent = '发布文章';
     }
   });
 

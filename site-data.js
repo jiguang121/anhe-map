@@ -1,20 +1,19 @@
 window.GC_DEFAULT_DATA = {
   version: 2,
   site: {
-    eyebrow: 'GENIUS CLUB · 匿名内场',
-    title: '天才俱乐部',
-    subtitle: '把不适合公开说的话，放进一个会漂浮的秘密房间。',
-    feedEyebrow: 'GENIUS CLUB',
+    eyebrow: '半句故事记录',
+    title: '半句',
+    subtitle: '那些没说完、没说出口的话，都留在这里。',
+    feedEyebrow: '半句 · 故事记录',
     shareButtonText: '匿名分享',
     visitorLabel: '游客模式',
     memberLabel: '会员模式',
     viewLimit: 5,
     payTitle: '你已经看完 5 条免费内容',
-    payText: '继续查看完整秘密，需要登录会员。当前版本是演示入口，后续可以接微信登录、手机号登录或真实支付。',
+    payText: '继续查看完整内容，需要登录会员。当前版本是演示入口，后续可以接微信登录、手机号登录或真实支付。',
     payButtonText: '模拟开通会员',
     loginTitle: '演示登录',
-    loginText: '输入任意昵称即可成为“会员”。这是前端演示，不是真实账号系统。',
-    adminPassword: 'genius-admin'
+    loginText: '输入任意昵称即可成为“会员”。这是前端演示，不是真实账号系统。'
   },
   categories: [
     { id: 'privacy', name: '隐私', tagline: '不能说的边界', orbClass: 'orb-privacy' },

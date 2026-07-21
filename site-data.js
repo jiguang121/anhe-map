@@ -1,10 +1,10 @@
 window.GC_DEFAULT_DATA = {
   version: 2,
   site: {
-    eyebrow: '半句故事记录',
+    eyebrow: '半句',
     title: '半句',
     subtitle: '那些没说完、没说出口的话，都留在这里。',
-    feedEyebrow: '半句 · 故事记录',
+    feedEyebrow: '半句',
     shareButtonText: '匿名分享',
     visitorLabel: '游客模式',
     memberLabel: '会员模式',

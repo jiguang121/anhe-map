@@ -46,11 +46,11 @@ function defaultContent() {
   return {
     version: 4,
     site: {
-      eyebrow: 'GENIUS CLUB · 匿名内场',
-      title: '天才俱乐部',
-      subtitle: '把不适合公开说的话，放进一个会漂浮的秘密房间。',
-      feedEyebrow: 'GENIUS CLUB',
-      shareButtonText: '匿名分享',
+      eyebrow: '',
+      title: '半句',
+      subtitle: '那些没说完、没说出口的话，都留在这里。',
+      feedEyebrow: '半句',
+      shareButtonText: '新增文章',
       visitorLabel: '访客模式',
       memberLabel: '会员模式',
       dailyFreeViews: 5,
@@ -222,6 +222,47 @@ async function checkView(visitorId, postId) {
   };
 }
 
+async function publishPost(payload) {
+  const visitorId = cleanText(payload.visitorId, 120);
+  const category = cleanText(payload.category, 30);
+  const title = cleanText(payload.title, 60);
+  const content = cleanText(payload.content, 1200);
+  if (!visitorId || !category || !title || !content) throw new Error('文章内容不完整');
+
+  const data = await getContent();
+  if (!data.categories.some(item => item.id === category)) throw new Error('文章分类不存在');
+
+  const now = Date.now();
+  const post = {
+    id: `post_${now}_${hash(`${visitorId}_${title}_${now}`).slice(0, 8)}`,
+    category,
+    title,
+    content,
+    createdAt: now,
+    comments: []
+  };
+
+  data.posts.unshift(post);
+  await saveContent(data);
+
+  try {
+    await db.collection(SUBMISSION_COLLECTION).add({
+      type: 'post',
+      status: 'published',
+      postId: post.id,
+      category,
+      title,
+      visitorHash: hash(visitorId),
+      createdAt: now,
+      updatedAt: now
+    });
+  } catch (error) {
+    console.warn('文章已发布，但发布记录写入失败：', error.message || error);
+  }
+
+  return { status: 'published', post };
+}
+
 async function createSubmission(type, payload) {
   const now = Date.now();
   const record = {
@@ -329,7 +370,7 @@ exports.main = async (event = {}) => {
     }
 
     if (action === 'submitPost') {
-      return ok(await createSubmission('post', event));
+      return ok(await publishPost(event));
     }
 
     if (action === 'submitComment') {

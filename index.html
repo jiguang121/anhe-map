@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>天才俱乐部 Genius Club</title>
-  <meta name="description" content="天才俱乐部：隐私、心事、爆料的匿名内容空间。" />
-  <link rel="stylesheet" href="./styles.css?v=8" />
+  <title>半句故事记录</title>
+  <meta name="description" content="半句故事记录：记录那些没说完、没说出口的隐私、心事与生活片段。" />
+  <link rel="stylesheet" href="./styles.css?v=10" />
 </head>
 <body>
   <div class="noise"></div>
   <main class="app-shell">
     <section id="home" class="screen active-screen">
       <div class="hero-copy">
-        <p id="homeEyebrow" class="eyebrow">GENIUS CLUB · 匿名内场</p>
-        <h1 id="homeTitle">天才俱乐部</h1>
-        <p id="homeSubtitle" class="subtitle">把不适合公开说的话，放进一个会漂浮的秘密房间。</p>
+        <p id="homeEyebrow" class="eyebrow">半句故事记录</p>
+        <h1 id="homeTitle">半句</h1>
+        <p id="homeSubtitle" class="subtitle">那些没说完、没说出口的话，都留在这里。</p>
       </div>
 
-      <div id="orbStage" class="orb-stage" aria-label="天才俱乐部入口"></div>
+      <div id="orbStage" class="orb-stage" aria-label="半句内容入口"></div>
 
       <div class="home-actions">
         <button id="loginBtn" class="ghost-btn" hidden>登录 / 会员入口</button>
@@ -28,7 +28,7 @@
       <header class="topbar">
         <button id="backBtn" class="icon-btn" aria-label="返回首页">←</button>
         <div>
-          <p id="feedEyebrow" class="eyebrow">GENIUS CLUB</p>
+          <p id="feedEyebrow" class="eyebrow">半句 · 故事记录</p>
           <h2 id="categoryTitle">隐私</h2>
         </div>
         <button id="shareBtn" class="primary-btn" hidden>匿名分享</button>
@@ -47,7 +47,7 @@
     <div class="modal-panel">
       <button class="close-btn" data-close="postModal">×</button>
       <p class="eyebrow">匿名发布</p>
-      <h3 id="postModalTitle">分享你的秘密</h3>
+      <h3 id="postModalTitle">分享你的故事</h3>
       <label>
         标题
         <input id="postTitle" maxlength="30" placeholder="给这条内容起个名字" />
@@ -63,7 +63,7 @@
   <div id="detailModal" class="modal" aria-hidden="true">
     <div class="modal-panel detail-panel">
       <button class="close-btn" data-close="detailModal">×</button>
-      <p id="detailMeta" class="eyebrow">匿名成员 · 刚刚</p>
+      <p id="detailMeta" class="eyebrow">匿名读者 · 刚刚</p>
       <h3 id="detailTitle"></h3>
       <p id="detailContent" class="detail-content"></p>
       <div class="comment-box">
@@ -95,15 +95,15 @@
       <p id="loginText" class="hint">当前版本无需登录即可浏览全部内容。</p>
       <label>
         昵称
-        <input id="nicknameInput" maxlength="16" placeholder="例如：匿名天才" />
+        <input id="nicknameInput" maxlength="16" placeholder="例如：无名旅人" />
       </label>
       <button id="submitLogin" class="primary-btn full">返回内容</button>
     </div>
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="./site-data.js?v=8"></script>
-  <script src="./gc-api.js?v=8"></script>
-  <script src="./app.js?v=8"></script>
+  <script src="./site-data.js?v=10"></script>
+  <script src="./gc-api.js?v=10"></script>
+  <script src="./app.js?v=10"></script>
 </body>
 </html>

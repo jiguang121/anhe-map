@@ -4,12 +4,31 @@ const state = {
   currentPostId: null
 };
 
+const BANJU_SITE_BRAND = {
+  eyebrow: '半句故事记录',
+  title: '半句',
+  subtitle: '那些没说完、没说出口的话，都留在这里。',
+  feedEyebrow: '半句 · 故事记录'
+};
+
 function $(id) {
   return document.getElementById(id);
 }
 
 function getData() {
   return state.data || gcCreateDefaultData();
+}
+
+function applyBanjuBrand(data) {
+  if (!data?.site) return data;
+  const oldBrandDetected = data.site.title === '天才俱乐部'
+    || String(data.site.eyebrow || '').includes('GENIUS CLUB')
+    || String(data.site.feedEyebrow || '').includes('GENIUS CLUB');
+
+  if (oldBrandDetected) {
+    data.site = { ...data.site, ...BANJU_SITE_BRAND };
+  }
+  return data;
 }
 
 function getCategoryById(data, id) {
@@ -63,7 +82,7 @@ function escapeHtml(text) {
 
 async function refreshData() {
   const loaded = await gcLoadData();
-  state.data = loaded || gcLocalGetData();
+  state.data = applyBanjuBrand(loaded || gcLocalGetData());
   if (!state.data.categories.some(category => category.id === state.currentCategory)) {
     state.currentCategory = state.data.categories[0]?.id || 'privacy';
   }
@@ -71,11 +90,12 @@ async function refreshData() {
 
 function renderHome() {
   const data = getData();
-  $('homeEyebrow').textContent = data.site.eyebrow;
-  $('homeTitle').textContent = data.site.title;
-  $('homeSubtitle').textContent = data.site.subtitle;
+  document.title = '半句故事记录';
+  $('homeEyebrow').textContent = data.site.eyebrow || BANJU_SITE_BRAND.eyebrow;
+  $('homeTitle').textContent = data.site.title || BANJU_SITE_BRAND.title;
+  $('homeSubtitle').textContent = data.site.subtitle || BANJU_SITE_BRAND.subtitle;
   $('shareBtn').textContent = data.site.shareButtonText || '匿名分享';
-  $('feedEyebrow').textContent = data.site.feedEyebrow || 'GENIUS CLUB';
+  $('feedEyebrow').textContent = data.site.feedEyebrow || BANJU_SITE_BRAND.feedEyebrow;
   $('payTitle').textContent = '会员功能预留';
   $('payText').textContent = '当前版本全部内容开放浏览。';
   $('mockPayBtn').textContent = '返回内容';
@@ -113,7 +133,7 @@ function renderPosts() {
     return `
       <article class="post-card">
         <div class="post-meta">
-          <span>匿名成员</span>
+          <span>匿名读者</span>
           <span>${formatTime(post.createdAt)}</span>
         </div>
         <h3>${escapeHtml(post.title)}</h3>
@@ -137,7 +157,7 @@ function openPost(postId) {
   if (!post) return;
 
   state.currentPostId = postId;
-  $('detailMeta').textContent = `匿名成员 · ${formatTime(post.createdAt)} · ${categoryName(data, post.category)}`;
+  $('detailMeta').textContent = `匿名读者 · ${formatTime(post.createdAt)} · ${categoryName(data, post.category)}`;
   $('detailTitle').textContent = post.title;
   $('detailContent').textContent = post.content;
   renderComments(post);

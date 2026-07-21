@@ -1,6 +1,7 @@
 (() => {
   const BRAND = '半句';
   const SUBTITLE = '那些没说完、没说出口的话，都留在这里。';
+  const TARGET_TITLE = location.pathname.endsWith('admin.html') ? '半句后台' : BRAND;
 
   function setText(id, value) {
     const element = document.getElementById(id);
@@ -13,7 +14,7 @@
   }
 
   function applyBrand() {
-    document.title = location.pathname.endsWith('admin.html') ? '半句后台' : BRAND;
+    if (document.title !== TARGET_TITLE) document.title = TARGET_TITLE;
     setText('homeEyebrow', BRAND);
     setText('homeTitle', BRAND);
     setText('homeSubtitle', SUBTITLE);
@@ -29,9 +30,12 @@
 
   applyBrand();
   document.addEventListener('DOMContentLoaded', applyBrand, { once: true });
-  new MutationObserver(applyBrand).observe(document.documentElement, {
-    childList: true,
-    subtree: true
-  });
-  setInterval(applyBrand, 1000);
+  window.addEventListener('load', applyBrand, { once: true });
+
+  let attempts = 0;
+  const timer = setInterval(() => {
+    applyBrand();
+    attempts += 1;
+    if (attempts >= 60) clearInterval(timer);
+  }, 1000);
 })();

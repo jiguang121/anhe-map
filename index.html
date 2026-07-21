@@ -5,15 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>半句</title>
   <meta name="description" content="半句：记录那些没说完、没说出口的隐私、心事与生活片段。" />
-  <link rel="stylesheet" href="./styles.css?v=11" />
+  <link rel="stylesheet" href="./styles.css?v=13" />
 </head>
 <body>
   <div class="noise"></div>
   <main class="app-shell">
     <section id="home" class="screen active-screen">
       <div class="hero-copy">
-        <p id="homeEyebrow" class="eyebrow">半句</p>
-        <h1 id="homeTitle">半句</h1>
+        <h1 id="homeTitle" class="brand-title">半句</h1>
         <p id="homeSubtitle" class="subtitle">那些没说完、没说出口的话，都留在这里。</p>
       </div>
 
@@ -31,7 +30,7 @@
           <p id="feedEyebrow" class="eyebrow">半句</p>
           <h2 id="categoryTitle">隐私</h2>
         </div>
-        <button id="shareBtn" class="primary-btn" hidden>匿名分享</button>
+        <button id="shareBtn" class="primary-btn">新增文章</button>
       </header>
 
       <div class="stats-card">
@@ -46,17 +45,18 @@
   <div id="postModal" class="modal" aria-hidden="true">
     <div class="modal-panel">
       <button class="close-btn" data-close="postModal">×</button>
-      <p class="eyebrow">匿名发布</p>
-      <h3 id="postModalTitle">分享你的故事</h3>
+      <p class="eyebrow">匿名新增</p>
+      <h3 id="postModalTitle">新增一篇文章</h3>
+      <p class="publish-note">发布后会直接显示在当前分类。请勿填写他人隐私、联系方式或违法违规内容。</p>
       <label>
         标题
         <input id="postTitle" maxlength="30" placeholder="给这条内容起个名字" />
       </label>
       <label>
         内容
-        <textarea id="postContent" maxlength="600" placeholder="写下你想匿名说出来的事……"></textarea>
+        <textarea id="postContent" maxlength="600" placeholder="写下你想匿名说出来的话……"></textarea>
       </label>
-      <button id="submitPost" class="primary-btn full">提交审核</button>
+      <button id="submitPost" class="primary-btn full">发布文章</button>
     </div>
   </div>
 
@@ -102,9 +102,9 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="./site-data.js?v=11"></script>
-  <script src="./gc-api.js?v=11"></script>
-  <script src="./app.js?v=11"></script>
-  <script src="./brand-migration.js?v=12"></script>
+  <script src="./site-data.js?v=13"></script>
+  <script src="./gc-api.js?v=13"></script>
+  <script src="./app.js?v=13"></script>
+  <script src="./brand-migration.js?v=13"></script>
 </body>
 </html>

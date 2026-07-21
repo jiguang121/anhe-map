@@ -84,8 +84,9 @@
     stack.prepend(button);
     stack.parentElement?.insertBefore(note, stack);
 
-    const label = document.querySelector('label:has(#postCommentsAdmin)');
-    if (label?.firstChild) {
+    const commentsField = document.getElementById('postCommentsAdmin');
+    const label = commentsField ? commentsField.closest('label') : null;
+    if (label && label.firstChild) {
       label.firstChild.textContent = '展示评论，每行一条；以“↳”开头的行会显示为回复';
     }
   }

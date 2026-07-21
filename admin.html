@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>半句后台</title>
   <meta name="robots" content="noindex" />
-  <link rel="stylesheet" href="./styles.css?v=11" />
-  <link rel="stylesheet" href="./admin.css?v=11" />
+  <link rel="stylesheet" href="./styles.css?v=14" />
+  <link rel="stylesheet" href="./admin.css?v=14" />
+  <link rel="stylesheet" href="./editorial.css?v=14" />
 </head>
 <body>
   <div class="noise"></div>
@@ -87,7 +88,7 @@
           <button id="resetDataBtn" class="danger-btn full" hidden>恢复默认内容</button>
           <button id="clearMemberBtn" class="ghost-btn full" hidden>清除本机会员状态</button>
         </div>
-        <label>JSON 内容<textarea id="dataJson" class="code-area" placeholder="点击“载入首批 30 篇内容”，或粘贴自己的 JSON"></textarea></label>
+        <label>JSON 内容<textarea id="dataJson" class="code-area" placeholder="点击内容载入按钮，或粘贴自己的 JSON"></textarea></label>
       </article>
 
       <article class="admin-card wide-card">
@@ -109,7 +110,7 @@
             <label>分类<select id="postCategory"></select></label>
             <label>标题<input id="postTitleAdmin" /></label>
             <label>正文<textarea id="postContentAdmin"></textarea></label>
-            <label>展示评论，每行一条<textarea id="postCommentsAdmin"></textarea></label>
+            <label>展示评论，每行一条；以“↳”开头的行显示为回复<textarea id="postCommentsAdmin"></textarea></label>
           </div>
         </div>
       </article>
@@ -117,10 +118,12 @@
   </main>
 
   <div id="toast" class="toast"></div>
-  <script src="./site-data.js?v=11"></script>
-  <script src="./gc-api.js?v=11"></script>
-  <script src="./starter-content.js?v=11"></script>
-  <script src="./admin.js?v=11"></script>
-  <script src="./brand-migration.js?v=12"></script>
+  <script src="./site-data.js?v=14"></script>
+  <script src="./gc-api.js?v=14"></script>
+  <script src="./starter-content.js?v=14"></script>
+  <script src="./editorial-seed.js?v=14"></script>
+  <script src="./admin.js?v=14"></script>
+  <script src="./editorial-admin.js?v=14"></script>
+  <script src="./brand-migration.js?v=14"></script>
 </body>
 </html>

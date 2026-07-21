@@ -15,7 +15,6 @@
 
   function applyBrand() {
     if (document.title !== TARGET_TITLE) document.title = TARGET_TITLE;
-    setText('homeEyebrow', BRAND);
     setText('homeTitle', BRAND);
     setText('homeSubtitle', SUBTITLE);
     setText('feedEyebrow', BRAND);
@@ -23,6 +22,9 @@
     setValue('siteTitle', BRAND);
     setValue('siteSubtitle', SUBTITLE);
     setValue('siteFeedEyebrow', BRAND);
+
+    const oldHomeEyebrow = document.getElementById('homeEyebrow');
+    if (oldHomeEyebrow) oldHomeEyebrow.hidden = true;
 
     const adminMark = document.querySelector('.admin-header .eyebrow');
     if (adminMark && adminMark.textContent !== BRAND) adminMark.textContent = BRAND;
@@ -36,6 +38,6 @@
   const timer = setInterval(() => {
     applyBrand();
     attempts += 1;
-    if (attempts >= 60) clearInterval(timer);
+    if (attempts >= 12) clearInterval(timer);
   }, 1000);
 })();
